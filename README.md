@@ -5,6 +5,7 @@ This is a fork of GarmentNets for the goal of extending GarmentNets' single pred
 Table of Contents
 - [GarmentNets Tracking](#garmentnets-tracking)
   - [Extension Thoughts](#extension-thoughts)
+    - ["Simple" Post-GarmentNets Residual Prediction](#simple-post-garmentnets-residual-prediction)
   - [Notes](#notes)
     - [Installation](#installation)
       - [Python Environment](#python-environment)
@@ -24,6 +25,8 @@ Table of Contents
 
 **Disclaimer:** I don't really know what I'm talking about here but Abhinav does so hopefully that's comforting to some extent.
 
+### "Simple" Post-GarmentNets Residual Prediction
+
 We're trying to extend GarmentNets to do tracking of the cloth **after** the cloth has initially been ran through the initial GarmentNets pipeline, i.e. the cloth has been picked up, the gripper rotated such that we received 4 views for the sensor to record point clouds, stitched those 4 point clouds together, and ran the pipeline.
 We then wish to perform tracking on the cloth now that we have a good idea of the initial pose.
 
@@ -41,15 +44,21 @@ The information we'd feed to this portion of the model would be:
   - Warp field prediction (dx, dy, dz)
   - **Tentative:** Corresponding predicted NOCS coordinates for each point.
   - **Tentative:** NOCS prediction confidence.
+    - This could potentially be quite helpful. Would hopefully encode a point-wise importance for warpfield prediction.
 - New data (concatenated point-wise)
   - Point cloud transformed to the table frame.
   - Label indicating that the cloud belong to the new cloud.
   - Zero-initialized warp field prediction
-  - **Tentative:** Corresponding predicted NOCS coordinates for each point.
-  - **Tentative:** NOCS prediction confidence.
+  - **Tentative:** Zero-initialized Corresponding predicted NOCS coordinates for each point.
+  - **Tentative:** Zero-initialized NOCS prediction confidence.
 
 **Probable Problem:** I'm concerned about the presence of categorical labels here. I doubt that will play nicely. I wonder if we could use two PointNet++ encoders to encode both the original data and the new data, then use a PointNet++ decoder on the concatenation of those two encoded clouds to get a new warp field.
 - We might be able to avoid this problem by using a one hot encoding. So instead of original data indicated by a 1 and new data indicated by a 0, Original would be [1, 0] and New data would be indicated by [0, 1].
+
+For this residual prediction to work, the PointNet++ model will have to cover a decently large area of the input clouds so that the original non-table-deformed cloud areas will overlap with the new table-deformed areas.
+- **Potential Shortcut** - we could probably do a proof of concept for this and only lower the garment such that ~25% of the original grasped garment was deformed due to the table. Obviously, the most difficult situation would be when the garment is lowered such that all of it is resting on the table but I don't think we need to make something that is this robust.
+
+**Could potentially do this with 3D Convolution by binning the warp field.** Might be too high of resolution to bin, though.
 
 
 ## Notes
