@@ -11,6 +11,7 @@ Table of Contents
       - [Python Environment](#python-environment)
       - [Data Downloads](#data-downloads)
     - [Successful Run](#successful-run)
+    - [Simulation](#simulation)
 - [Original GarmentNets Documentation](#original-garmentnets-documentation)
   - [Cite this work](#cite-this-work)
   - [Datasets](#datasets)
@@ -57,6 +58,7 @@ The information we'd feed to this portion of the model would be:
 
 For this residual prediction to work, the PointNet++ model will have to cover a decently large area of the input clouds so that the original non-table-deformed cloud areas will overlap with the new table-deformed areas.
 - **Potential Shortcut** - we could probably do a proof of concept for this and only lower the garment such that ~25% of the original grasped garment was deformed due to the table. Obviously, the most difficult situation would be when the garment is lowered such that all of it is resting on the table but I don't think we need to make something that is this robust.
+  - **Note on Implementation** - PointNet's grouping layer takes a distance as a parameter (usually Euclidean but can be non-Euclidean as well). That means that we can easily determine the number of layers needed for a point in the time t=t table-deformed cloud to overlap with the time t=0 original cloud. Much like a receptive field in CNNs.
 
 **Could potentially do this with 3D Convolution by binning the warp field.** Might be too high of resolution to bin, though.
 
@@ -117,6 +119,13 @@ I was able to do a successful run by doing the following:
     # Substitute the directory with whatever directory that was created for you.
     python3 eval.py main.prediction_output_dir=$GARMENTNETS_ROOT/outputs/2023-04-01/23-09-36
     ```
+
+### Simulation
+
+Cheng did the simulation with Blender and has shared the repository with me.
+I will be porting the simulation pipeline code as I work with it.
+
+The [simulation pipeline README](./simulation/README.md) details my thoughts as I work through it.
 
 # Original GarmentNets Documentation
 
