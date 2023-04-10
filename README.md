@@ -71,6 +71,10 @@ For this residual prediction to work, the PointNet++ model will have to cover a 
 
 I had a horrible time trying to get Anaconda to work (I already don't like it and this reaffirmed my opinion), so I decided to just use my existing Python environment. That's basically one step forward and two steps back, but I just needed to get this to work.
 
+I've added a pip requirements.txt named, "garmentnets_pip_requirements.txt" to help with package installs. 
+This has lots of extraneous packages but should help with figuring out which package versions are necessary to get this running.
+You'll probably have to run GarmentNets multiple times to see which packages are required but not installed, then install them.
+
 #### Data Downloads
 
 I did the following to create the necessary directories for the datasets.
