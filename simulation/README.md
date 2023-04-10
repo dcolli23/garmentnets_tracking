@@ -11,6 +11,8 @@ He shared his repository for simulation with me and I'll be moving here as I sor
 
 I downloaded Python3.10, created a `pipenv` Python virtual environment (stored as Pipfile in this directory), then started working on the code.
 
+For normal installation, I *separately* installed Blender by downloading the [version 3.5 package](https://www.blender.org/download/) and extracting to my home directory.
+
 ### Python Version Issues
 
 I have Python3.8 installed for my system Python but Blender 3.5, 3.4 uses Python 3.10 and it seems pretty impossible to get it to use anything else.
