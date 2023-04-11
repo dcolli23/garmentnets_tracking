@@ -28,17 +28,18 @@ def simulate_lowering_cloth_onto_table_full(sample_config: dict, sample_data: di
 def simulate_lowering_cloth_onto_table_after_smpl_sim(grip_lowering_args: dict,
                                                       smpl_simulation_duration_pair: Tuple[int, int],
                                                       smpl_sim_results: dict,
-                                                      blend_checkpoint_filepath_root: str=None):
+                                                      sample_dir: Path,
+                                                      save_new_checkpoints=True):
     print("Running Simulation Of Lowering Cloth Onto Table")
     print(LINE_SEP)
-    checkpointer = BlendFileCheckpointer(blend_checkpoint_filepath_root)
+    checkpointer = BlendFileCheckpointer(sample_dir, save_new_checkpoints=save_new_checkpoints)
 
     cloth_obj = bpy.data.objects["cloth"]
 
     set_sim_output_as_default_mesh_shape(cloth_obj,
                                          initial_sim_end_frame=smpl_simulation_duration_pair[1])
 
-    checkpointer.save_checkpoint_if_desired()
+    checkpointer.save_hanging_rest_state_if_desired()
 
     # Reset to the 1st frame of the simulation.
     bpy.context.scene.frame_set(1)
