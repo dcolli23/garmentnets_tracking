@@ -7,7 +7,7 @@ import numpy as np
 from simulation.pipeline.smpl_simulation_pipeline import smpl_simulation_pipeline
 from simulation.blender_util.physics import run_simulation
 from simulation.blender_util_dylan.checkpointer import BlendFileCheckpointer
-from simulation.blender_util_dylan.shape_keys import set_obj_default_shape_from_shape_key
+from simulation.blender_util_dylan.physics import set_sim_output_as_default_mesh_shape
 from simulation.blender_util_dylan.modifiers import make_modifier_highest_priority
 from simulation.blender_util_dylan.mesh import add_collision_plane
 
@@ -41,16 +41,8 @@ def simulate_lowering_cloth_onto_table_after_smpl_sim(grip_lowering_args: dict,
 
     cloth_obj = bpy.data.objects["cloth"]
 
-    # First, set the active frame to one that is after the initial simulation.
-    # TODO: Update this with the args_dict value in the final big for loop.
-    initial_sim_end_frame = smpl_simulation_duration_pair[1]
-    bpy.context.scene.frame_set(initial_sim_end_frame + 1)
-
-    # Then, apply the cloth modifier as a shapekey.
-    bpy.ops.object.modifier_apply_as_shapekey(keep_modifier=True, modifier="CLOTH")
-
-    # Set the mesh's default shape to the shape of the shape key we just created.
-    set_obj_default_shape_from_shape_key(cloth_obj, "CLOTH", verbose=True)
+    set_sim_output_as_default_mesh_shape(cloth_obj,
+                                         initial_sim_end_frame=smpl_simulation_duration_pair[1])
 
     checkpointer.save_checkpoint_if_desired()
 
