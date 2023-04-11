@@ -4,7 +4,8 @@ from typing import Tuple
 import bpy
 import numpy as np
 
-from simulation.pipeline.smpl_simulation_pipeline import smpl_simulation_pipeline
+from simulation.pipeline.simulate_garment_hanging_rest_state import \
+    simulate_garment_hanging_rest_state
 from simulation.blender_util.physics import run_simulation
 from simulation.blender_util_dylan.checkpointer import BlendFileCheckpointer
 from simulation.blender_util_dylan.physics import set_sim_output_as_default_mesh_shape
@@ -18,14 +19,7 @@ def simulate_lowering_cloth_onto_table_full(sample_config: dict, sample_data: di
                                             smpl_simulation_duration_pair: Tuple[int, int],
                                             grip_lowering_args: dict,
                                             blend_checkpoint_filepath_root: str=None):
-    smpl_sim_args = dict()
-    smpl_sim_args.update(sample_config)
-    smpl_sim_args.update(sample_data)
-    smpl_sim_args["simulation_duration_pair"] = smpl_simulation_duration_pair
-
-    print("Running SMPL Simulation Pipeline")
-    print(LINE_SEP)
-    result_data_smpl = smpl_simulation_pipeline(**smpl_sim_args)
+    result_data_smpl = simulate_garment_hanging_rest_state(sample_config, sample_data)
 
     # TODO: Figure out what I want to return from the cloth lowering simulation.
     result_data_lowering = simulate_lowering_cloth_onto_table_after_smpl_sim(grip_lowering_args,
