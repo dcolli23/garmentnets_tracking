@@ -3,6 +3,8 @@ from pathlib import Path
 
 import bpy
 
+from simulation.blender_util_dylan.gripper import require_virtual_gripper
+
 class BlendFileCheckpointer:
     """Saves .blend file checkpoints if given a file path root"""
     garment_sample_dir: str
@@ -42,23 +44,29 @@ class BlendFileCheckpointer:
                     "Can't resimulate if the hanging rest state hasn't been checkpointed."
                 )
 
-    def save_hanging_rest_state(self):
+    def save_hanging_rest_state(self, overwrite_ok=False):
         """Saves special checkpoint for after simulating the garment's hanging rest state
 
         This is particularly helpful in the case of simulating multiple dynamics runs on the same
         garment.
         """
-        if not self.__rest_state_file_path.exists():
+        if (not self.__rest_state_file_path.exists()) or overwrite_ok:
             # Reset data so we don't have to do this everytime we reload the checkpoint.
             # NOTE: For some reason, physics bakes won't delete if we reset the frame first.
             bpy.ops.ptcache.free_bake_all()
             bpy.context.scene.animation_data_clear()
             bpy.context.scene.frame_set(0)
 
+            # Add a virtual gripper to the cloth if one isn't present. Again, so we don't have to do
+            # this every time we reload the checkpoint.
+            cloth_obj = bpy.data.objects["cloth"]
+            require_virtual_gripper(cloth_obj)
+
             bpy.ops.wm.save_as_mainfile(filepath=self.__rest_state_file_path.as_posix())
             print("Saved hanging rest state checkpoint to:", self.__rest_state_file_path)
         else:
-            raise RuntimeError("Hanging rest state checkpoint already exists! Delete it to save new checkpoint.")
+            raise RuntimeError("Hanging rest state checkpoint already exists!\n"
+                               "Delete it or pass `overwrite_ok=True` to save new checkpoint.")
 
     def save_checkpoint_if_desired(self):
         """Saves Blender checkpoint as .blend file for e.g. checking status or resimulation"""

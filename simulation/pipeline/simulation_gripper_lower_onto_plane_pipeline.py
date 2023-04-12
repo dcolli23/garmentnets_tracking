@@ -39,13 +39,13 @@ def simulate_lowering_cloth_onto_table_after_smpl_sim(grip_lowering_args: dict,
     set_sim_output_as_default_mesh_shape(cloth_obj,
                                          initial_sim_end_frame=smpl_simulation_duration_pair[1])
 
-    checkpointer.save_hanging_rest_state_if_desired()
-
-    # Reset to the 1st frame of the simulation.
-    bpy.context.scene.frame_set(1)
+    checkpointer.save_hanging_rest_state(overwrite_ok=True)
 
     # Delete the physics cache.
     bpy.ops.ptcache.free_bake_all()
+
+    # Reset to the 1st frame of the simulation.
+    bpy.context.scene.frame_set(1)
 
     # Add a hook to a new empty so that we can control the cloth and lower it onto the "table"
     require_virtual_gripper(cloth_obj)

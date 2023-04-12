@@ -24,7 +24,7 @@ def require_virtual_gripper(obj: bpy.types.Object):
         # precedent. This is required to be able to move the cloth like its held by a gripper.
         make_modifier_highest_priority("Hook-Empty")
     else:
-        print(f"Virtual gripper found in given object, '{obj.name}'. Nont creating one.")
+        print(f"Virtual gripper found in given object, '{obj.name}'. Not creating one.")
 
 class GripperAnimation:
     """Class for easily defining piecewise linear gripper control with Bezier interpolation"""
