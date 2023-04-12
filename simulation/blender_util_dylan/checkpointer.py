@@ -49,6 +49,11 @@ class BlendFileCheckpointer:
         garment.
         """
         if not self.__rest_state_file_path.exists():
+            # Reset data so we don't have to do this everytime we reload the checkpoint.
+            bpy.context.scene.animation_data_clear()
+            bpy.context.scene.frame_set(0)
+            bpy.ops.ptcache.free_bake_all()
+
             bpy.ops.wm.save_as_mainfile(filepath=self.__rest_state_file_path.as_posix())
             print("Saved hanging rest state checkpoint to:", self.__rest_state_file_path)
         else:
