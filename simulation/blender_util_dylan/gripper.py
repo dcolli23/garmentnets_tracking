@@ -3,6 +3,29 @@ import bpy
 import mathutils
 import numpy as np
 
+from simulation.blender_util_dylan.modifiers import make_modifier_highest_priority
+
+def require_virtual_gripper(obj: bpy.types.Object):
+    """Adds a virtual gripper ('empty' object) if the given object doesn't already have one"""
+    all_obj_names = [o.name for o in bpy.data.objects]
+    if "Empty" not in all_obj_names:
+        print(f"Virtual gripper not found in given object, '{obj.name}'. Creating one.")
+        bpy.context.view_layer.objects.active = obj
+        bpy.ops.object.editmode_toggle()
+        bpy.ops.object.vertex_group_set_active(group="pin")
+        bpy.ops.object.hook_add_newob()
+        bpy.ops.object.editmode_toggle()
+
+        # Check that the new "Empty" object was created.
+        all_obj_names = [o.name for o in bpy.data.objects]
+        assert ("Empty" in all_obj_names)
+
+        # Move the newly created hook modifier to be above the CLOTH modifier so that it takes
+        # precedent. This is required to be able to move the cloth like its held by a gripper.
+        make_modifier_highest_priority("Hook-Empty")
+    else:
+        print(f"Virtual gripper found in given object, '{obj.name}'. Nont creating one.")
+
 class GripperAnimation:
     """Class for easily defining piecewise linear gripper control with Bezier interpolation"""
     obj: bpy.types.Object

@@ -9,8 +9,8 @@ from simulation.pipeline.simulate_garment_hanging_rest_state import \
 from simulation.blender_util.physics import run_simulation
 from simulation.blender_util_dylan.checkpointer import BlendFileCheckpointer
 from simulation.blender_util_dylan.physics import set_sim_output_as_default_mesh_shape
-from simulation.blender_util_dylan.modifiers import make_modifier_highest_priority
 from simulation.blender_util_dylan.mesh import add_collision_plane
+from simulation.blender_util_dylan.gripper import require_virtual_gripper
 
 PLANE_OFFSET = 0.025  # [m]
 LINE_SEP = 80 * '-'
@@ -48,18 +48,7 @@ def simulate_lowering_cloth_onto_table_after_smpl_sim(grip_lowering_args: dict,
     bpy.ops.ptcache.free_bake_all()
 
     # Add a hook to a new empty so that we can control the cloth and lower it onto the "table"
-    bpy.ops.object.editmode_toggle()
-    bpy.ops.object.vertex_group_set_active(group="pin")
-    bpy.ops.object.hook_add_newob()
-    bpy.ops.object.editmode_toggle()
-
-    # Check that the new "Empty" object was created.
-    all_obj_names = [o.name for o in bpy.data.objects]
-    assert ("Empty" in all_obj_names)
-
-    # Move the newly created hook modifier to be above the CLOTH modifier so that it takes precedent.
-    # This is required to be able to move the cloth like its held by a gripper.
-    make_modifier_highest_priority("Hook-Empty")
+    require_virtual_gripper(cloth_obj)
 
     ## Add animation of the virtual gripper. We'll lower the cloth onto the table over some period of
     # time, then stay stationary for a brief period of time to let the cloth settle.
