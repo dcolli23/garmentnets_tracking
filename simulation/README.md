@@ -3,13 +3,19 @@
 Cheng did the simulation for this paper in Blender as the CLOTH3D dataset is setup for this simulation already.
 He shared his repository for simulation with me and I'll be moving here as I sort through what is necessary for simulation as there's lots of code in the repo.
 
+
+## Table of Contents <!-- omit from toc -->
 - [Blender Installation](#blender-installation)
   - [Python Version Issues](#python-version-issues)
 - [Accessing The CLOTH3D Dataset](#accessing-the-cloth3d-dataset)
 
 ## Blender Installation
 
-I downloaded Python3.10, created a `pipenv` Python virtual environment (stored as Pipfile in this directory), then started working on the code.
+I downloaded Python3.10, created a `pipenv` Python virtual environment (stored as Pipfile in this directory), then started working on the code. In terms of actual Blender Python installation, I downloaded the following via pip:
+- `bpy`
+  - Installs Blender as a Python module. My understanding is that this is a *separate* Blender installation than anything on your system.
+- `fake-bpy-module-latest`
+  - Installs "fake" Blender Python modules (I'd probably calls these "stubs") so that VS Code intellisense works.
 
 For normal installation, I *separately* installed Blender by downloading the [version 3.5 package](https://www.blender.org/download/) and extracting to my home directory.
 
