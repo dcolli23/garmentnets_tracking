@@ -1,5 +1,6 @@
 import os
 from pathlib import Path
+import pickle
 
 import bpy
 
@@ -10,13 +11,19 @@ class BlendFileCheckpointer:
     garment_sample_dir: str
     __save_new_checkpoints: bool
     __checkpoint_idx_next: int
+    __rest_state_file_path: Path
+    __rest_state_result_dict_file_path: Path
+
+    __rest_state_file_name: str = "hanging_rest_state.blend"
+    __rest_state_result_dict_file_name = "hanging_rest_state_results.pkl"
 
     def __init__(self, garment_sample_dir: Path, save_new_checkpoints: bool):
         self.garment_sample_dir = garment_sample_dir
         self.__save_new_checkpoints = save_new_checkpoints
         self.__checkpoint_idx_next = 1
-        self.__rest_state_file_name = "hanging_rest_state.blend"
         self.__rest_state_file_path = self.garment_sample_dir / self.__rest_state_file_name
+        self.__rest_state_result_dict_file_path = \
+            self.garment_sample_dir / self.__rest_state_result_dict_file_name
 
     def does_rest_state_checkpoint_exist(self):
         """Public method for checking if the resting state checkpoint exists"""
@@ -44,7 +51,7 @@ class BlendFileCheckpointer:
                     "Can't resimulate if the hanging rest state hasn't been checkpointed."
                 )
 
-    def save_hanging_rest_state(self, overwrite_ok=False):
+    def save_hanging_rest_state(self, overwrite_ok: bool=False, result_data_smpl: dict=None):
         """Saves special checkpoint for after simulating the garment's hanging rest state
 
         This is particularly helpful in the case of simulating multiple dynamics runs on the same
@@ -64,6 +71,10 @@ class BlendFileCheckpointer:
 
             bpy.ops.wm.save_as_mainfile(filepath=self.__rest_state_file_path.as_posix())
             print("Saved hanging rest state checkpoint to:", self.__rest_state_file_path)
+
+            # Now we write the SMPL result data dictionary if it was provided.
+            if result_data_smpl is not None:
+                self.save_rest_state_results(result_data_smpl)
         else:
             raise RuntimeError("Hanging rest state checkpoint already exists!\n"
                                "Delete it or pass `overwrite_ok=True` to save new checkpoint.")
@@ -78,6 +89,22 @@ class BlendFileCheckpointer:
         checkpoint_saved = self.__checkpoint_idx_next
         self.__checkpoint_idx_next += 1
         return checkpoint_saved
+
+    def save_rest_state_results(self, results: dict):
+        """Saves the SMPL simulation of garment grasped resting state results dict
+
+        Dictionary is of the structure:
+        cloth_state
+            uv_faces <class 'list'>
+            uv_verts <class 'numpy.ndarray'>
+            faces <class 'list'>
+            edges <class 'numpy.ndarray'>
+            verts <class 'numpy.ndarray'>
+        grip_vertex_idx <class 'int'>
+        """
+        print(f"Writing resting state results dictionary to {self.__rest_state_result_dict_file_path}")
+        pickle.dump(results, self.__rest_state_result_dict_file_path.open('wb'))
+        print("Done!")
 
     def load_checkpoint(self, checkpoint_idx: int):
         """Loads checkpoint, reseting the Blender environment so that it's ready for resim"""
@@ -95,6 +122,14 @@ class BlendFileCheckpointer:
 
         bpy.ops.wm.open_mainfile(filepath=self.__rest_state_file_path.as_posix())
         print("Successfully reloaded hanging rest state checkpoint.")
+
+        if self.__rest_state_result_dict_file_path.exists():
+            print("Detected that results dictionary for hanging rest state exists. Loading.")
+            results = pickle.load(self.__rest_state_result_dict_file_path.open('rb'))
+            return results
+
+    def reset_checkpoint_idx(self):
+        self.__checkpoint_idx_next = 1
 
     def __form_checkpoint_path(self, checkpoint_idx: int) -> Path:
         filepath = self.garment_sample_dir / f"checkpoint_{checkpoint_idx}.blend"
