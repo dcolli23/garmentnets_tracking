@@ -9,7 +9,7 @@ def clear_compositor():
     scene.node_tree.links.clear()
 
     # reset view layer
-    view_layer = scene.view_layers['View Layer']
+    view_layer = scene.view_layers['ViewLayer']
     view_layer.use_pass_uv = False
     view_layer.use_pass_object_index = False
     view_layer.use_pass_emit = False
@@ -37,7 +37,7 @@ def setup_uviz_compositor():
     clear_compositor()
 
     # setup layers
-    view_layer = scene.view_layers['View Layer']
+    view_layer = scene.view_layers['ViewLayer']
     view_layer.use_pass_uv = True
     view_layer.use_pass_object_index = True
     view_layer.use_pass_emit = True
