@@ -35,3 +35,16 @@ def print_obj_fcurve_information(obj: bpy.types.Object):
         print("\tGroup name:", fcurve.group.name)
         print("\tarray_index:", fcurve.array_index)
         print("\tData the FCurve is animating:", fcurve.data_path)
+
+def print_nested_dict_types(d: dict):
+    keys_and_values = [(k, v, 0) for k, v in d.items()][::-1]
+    while len(keys_and_values) > 0:
+        key, val, level = keys_and_values.pop(-1)
+        # if
+        tabs = '\t' * level
+        if isinstance(val, dict):
+            print(tabs + key)
+            for subkey, subval in val.items():
+                keys_and_values.append((subkey, subval, level + 1))
+        else:
+            print(tabs + key, type(val))
