@@ -47,6 +47,7 @@ DYNAMICS_ANIMATION_FILENAME = "dynamics_animation.blend"
 PLANE_OFFSET = 0.025  # [m]
 
 CAMERA_INTRINSIC = generate_intrinsic(1024, 1024, 2048)
+CAMERA_Z_OFFSET = -0.4
 
 # %% [markdown]
 # ## First, Render The Hanging Resting State (GarmentNets Input)
@@ -113,7 +114,7 @@ def render_resting_states():
             garment_texture=garment_texture,
             num_camera_angles=num_camera_angles,
             camera_intrinsic=CAMERA_INTRINSIC,
-            z_offset=-0.4
+            z_offset=CAMERA_Z_OFFSET
         )
         end_time = time.perf_counter()
         print(f"Took {end_time - start_time}",flush=True)
@@ -170,16 +171,17 @@ def render_dynamics_animations():
                 num_camera_angles=1,
                 camera_intrinsic=CAMERA_INTRINSIC,
                 render_animation=True,
-                z_offset=-0.4
+                z_offset=CAMERA_Z_OFFSET
             )
             end_time = time.perf_counter()
             print(f"Full animation render took: {end_time - start_time}", flush=True)
 
 
 if __name__ == "__main__":
-    # render_resting_states()
-    print("Only rendering dynamics animations!", flush=True)
-    render_dynamics_animations()
+    print("Only rendering resting states!")
+    render_resting_states()
+    # print("Only rendering dynamics animations!", flush=True)
+    # render_dynamics_animations()
 # %%
 
 
