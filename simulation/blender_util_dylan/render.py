@@ -1,4 +1,5 @@
 from pathlib import Path
+import os
 
 import bpy
 import numpy as np
@@ -50,6 +51,9 @@ from simulation.blender_util.compositor import (
 )
 from simulation.blender_util.collection import remove_all_collections
 
+ROOT = os.path.dirname(__file__)
+HDRI_PATH = os.path.join(ROOT, "..", "data", "hdri", "studio.exr")
+
 def enable_gpu_renders():
     # enable GPU
     cprefs = bpy.context.preferences.addons['cycles'].preferences
@@ -63,8 +67,8 @@ def enable_gpu_renders():
         print(device.id, device.use, device.type)
 
 def render_dylan(output_path, sample_id, garment_name, gender, fabric, garment_verts, garment_faces,
-                 garment_uv_verts, garment_uv_facess, garment_texture, num_camera_angles,
-                 camera_intrinsic, render_animation=False):
+                 garment_uv_verts, garment_uv_faces, garment_texture, num_camera_angles,
+                 camera_intrinsic, render_animation=False, z_offset=-0.8):
     # NOTE: Assuming we're starting from a saved checkpoint instead of using Cheng's BMesh 
     # checkpointing.
 
@@ -75,7 +79,7 @@ def render_dylan(output_path, sample_id, garment_name, gender, fabric, garment_v
     camera_obj = require_camera()
     set_camera_intrinsic(camera_obj, camera_intrinsic)
 
-    z_offset = -0.8
+    z_offset = z_offset
     radius = 4.0
     focus_point = np.array([0,0,z_offset])
     camera_rads = np.linspace(0, 2*np.pi, num=num_camera_angles+1)[:-1]
@@ -125,26 +129,26 @@ def render_dylan(output_path, sample_id, garment_name, gender, fabric, garment_v
 
     
 
-    print(bpy.context.scene.view_layers.keys())
+    # print(bpy.context.scene.view_layers.keys())
 
-    # The active scene is the only scene available so this shouldn't be the problem.
-    print(bpy.context.scene)
-    print(bpy.data.scenes.keys())
+    # # The active scene is the only scene available so this shouldn't be the problem.
+    # print(bpy.context.scene)
+    # print(bpy.data.scenes.keys())
 
-    print("Render FPS:", bpy.context.scene.render.fps)
-    print("Render FPS base:", bpy.context.scene.render.fps_base)
+    # print("Render FPS:", bpy.context.scene.render.fps)
+    # print("Render FPS base:", bpy.context.scene.render.fps_base)
 
-    print("Resolution x:,", bpy.context.scene.render.resolution_x)
-    print("Resolution y:,", bpy.context.scene.render.resolution_y)
+    # print("Resolution x:,", bpy.context.scene.render.resolution_x)
+    # print("Resolution y:,", bpy.context.scene.render.resolution_y)
 
-    default_render_config_blender = get_renderer_config(bpy.context.scene.render)
+    # default_render_config_blender = get_renderer_config(bpy.context.scene.render)
     # print("Default Blender Render Config:")
     # for k, v in default_render_config_blender.items():
     #     print(f"\t{k} = {v}")
 
 
 
-    default_render_config_cheng = get_default_cycles_config()
+    # default_render_config_cheng = get_default_cycles_config()
     # print("Default render config:")
     # for k, v in default_render_config_blender.items():
     #     print(f"\t{k} = {v}")
@@ -190,7 +194,12 @@ def render_dylan(output_path, sample_id, garment_name, gender, fabric, garment_v
         for i in range(num_camera_angles):
             setup_exr_output(uviz_paths[i])
             set_camera_extrinsic(camera_obj, camera_extrinsic_list[i])
-            bpy.ops.render.render(animation=False, write_still=True, use_viewport=False)
+
+            if render_animation:
+                scene = bpy.context.scene
+                scene.frame_start = 1
+                scene.frame_end = 200
+            bpy.ops.render.render(animation=render_animation, write_still=True, use_viewport=False)
         # curr_s = time.perf_counter()
         # print("Render UVIZ: {}".format(curr_s - s))
         # s = curr_s
@@ -199,7 +208,7 @@ def render_dylan(output_path, sample_id, garment_name, gender, fabric, garment_v
     # assign materials for rgb
     world_material = get_world_material()
 
-    setup_hdri_world_material(world_material, hdri_path="../data/hdri/studio.exr")
+    setup_hdri_world_material(world_material, hdri_path=HDRI_PATH)
 
     set_material(cloth_obj, cloth_material)
 
@@ -217,6 +226,11 @@ def render_dylan(output_path, sample_id, garment_name, gender, fabric, garment_v
     for i in range(num_camera_angles):
         setup_png_output(rgb_paths[i])
         set_camera_extrinsic(camera_obj, camera_extrinsic_list[i])
+
+        if render_animation:
+            scene = bpy.context.scene
+            scene.frame_start = 1
+            scene.frame_end = 200
         bpy.ops.render.render(animation=render_animation, write_still=True, use_viewport=False)
     # curr_s = time.perf_counter()
     # print("Render RGB: {}".format(curr_s - s))

@@ -22,12 +22,12 @@ from simulation.blender_util_dylan.debug import print_obj_keyframe_coordinates
 
 FILE_ROOT = Path(os.path.dirname(__file__))
 CLOTH3D_PATH = Path(os.path.expanduser("~/DataLocker/datasets/CLOTH3D/training/"))
-OUTPUT_ROOT = FILE_ROOT / ".." / "script_output" / "full_dataset"
+OUTPUT_ROOT = FILE_ROOT / ".." / "script_output" / "full_dataset_attempt_2"
 GARMENTNETS_SAMPLE_DATASET_ZARR = (FILE_ROOT / ".." / ".." / "data" / 
                                    "garmentnets_simulation_dataset_sample.zarr")
 assert (GARMENTNETS_SAMPLE_DATASET_ZARR.exists())
 GARMENTNETS_SAMPLE_PATH = ["Tshirt", "samples"]
-NUM_ACTION_SEQS_PER_SAMPLE = 15
+NUM_ACTION_SEQS_PER_SAMPLE = 5
 
 # Make the output directory if it doesn't exist.
 OUTPUT_ROOT.mkdir(exist_ok=True)
@@ -106,7 +106,7 @@ def main():
 
     # for config in sample_configs:
     #     print(config)
-    simulate_all_sequences(sample_configs, overwrite=True)
+    simulate_all_sequences(sample_configs, overwrite=False)
             
 if __name__ == "__main__":
     main()
