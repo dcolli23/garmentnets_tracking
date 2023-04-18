@@ -1,3 +1,5 @@
+from pathlib import Path
+from typing import Optional
 
 import bpy
 import mathutils
@@ -25,6 +27,55 @@ def require_virtual_gripper(obj: bpy.types.Object):
         make_modifier_highest_priority("Hook-Empty")
     else:
         print(f"Virtual gripper found in given object, '{obj.name}'. Not creating one.")
+
+class GripperData:
+    """Reads and stores information about the gripper in a Blend file dynamics simulation"""
+
+    def __init__(self, blend_file_path: Optional[Path]=None, gripper_object_name="Empty"):
+        """Reads and stores gripper information in Blend file dynamics simulation
+
+        WARNING: This loads the blend file and thus will wipe out any existing Blender data in RAM
+        """
+        # Read the Blend file if it was provided, otherwise assume that it's already loaded.
+        if blend_file_path is not None:
+            assert (blend_file_path.exists())
+            bpy.ops.wm.open_mainfile(filepath=blend_file_path.as_posix())
+
+        # Start at frame 0 and continue until the final keyframe of the gripper animation
+        # (inclusive).
+        gripper_obj = bpy.data.objects[gripper_object_name]
+        self.frame_start = 0
+        # Accidentally hardcoded the number of images rendered to 200 instead of rendering as many
+        # or as few as the simulation required.
+        print("WARNING! Hardcoded number of images rendered, effectively capping at 200 frames.")
+        # self.frame_end = min(gripper_obj.animation_data.action.frame_end, 200)
+        self.frame_start, self.frame_end = gripper_obj.animation_data.action.frame_range
+        self.frame_start = int(self.frame_start)
+        self.frame_end = int(self.frame_end)
+
+        self.gripper_locations = self._get_gripper_locations(gripper_obj)
+        self.velocity_meters_per_second = self._calculate_gripper_velocities()
+
+    def _get_gripper_locations(self, gripper_obj: bpy.types.Object):
+        gripper_locations = []
+        for idx in range(self.frame_start, self.frame_end + 1):
+            bpy.context.scene.frame_set(idx)
+            gripper_locations.append(gripper_obj.location.to_tuple())
+        return np.stack(gripper_locations, axis=0)
+
+    def _calculate_gripper_velocities(self):
+        """Performs symmetric difference differentiation to find the velocity"""
+        locs_shifted_right = self.gripper_locations[1:, :]
+        locs_shifted_left = self.gripper_locations[:-1, :]
+
+        vel_meters_per_frame = (locs_shifted_right - locs_shifted_left) / 2.
+
+        # Need blender frames per second to convert from meters/frame to meters/second
+        frames_per_second = bpy.context.scene.render.fps / bpy.context.scene.render.fps_base
+        velocity_meters_per_second = vel_meters_per_frame * frames_per_second
+        return velocity_meters_per_second
+
+
 
 class GripperAnimation:
     """Class for easily defining piecewise linear gripper control with Bezier interpolation"""
