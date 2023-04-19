@@ -28,7 +28,8 @@ def match_points(full_view, partial_view, full_rgb, partial_rgb):
     Match points in partial view to points in full view. Update the points in the full view with the closest points in the partial view.
     Use Euclidean distance to find closest points Use Pytorch knn
     """
-    knn = knn(full_view, partial_view, 1)
-    full_view[knn[1]] = partial_view
-    full_rgb[knn[1]] = partial_rgb
+    idx = knn(full_view, partial_view, 1)
+    # idx = knn(partial_view, full_view, 1)
+    full_view[idx[1]] = partial_view
+    full_rgb[idx[1]] = partial_rgb
     return full_view, full_rgb
