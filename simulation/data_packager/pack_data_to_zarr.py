@@ -3,7 +3,6 @@ import sys
 from pathlib import Path
 import pickle
 
-import bpy
 import zarr
 import numpy as np
 import skimage.io
@@ -19,7 +18,6 @@ from simulation.common.geometry_util import (barycentric_interpolation, get_aabb
 from simulation.cloth_3d_util.util import quads2tris, axis_angle_to_matrix
 from simulation.common.igl_util import query_uv_barycentric
 from simulation.data_packager.cloth_3d_canonical_accessor import Cloth3DCanonicalAccessor
-from simulation.blender_util_dylan.gripper import GripperData
 
 # Trying to avoid this import as it will execute the Zarr packaging code as is.
 # from simulation.data_packager.smpl_cloth_zarr_v5_cheng import Cloth3DCanonicalAccessor
@@ -35,6 +33,8 @@ ZARR_FILEPATH = GARMENTNETS_ROOT / "data" / "garmentnets_tracking_simulation_dat
 
 DYNAMICS_SEQUENCE_FILENAME_TEMPLATE = "dynamics_seq_{idx}"
 CAMERA_IDX_USED_FOR_ANIMATION = 0
+CAMERA_Z_OFFSET = -0.4
+CAMERA_Z_OFFSET_ARRAY = np.array((0.0, 0.0, CAMERA_Z_OFFSET))
 
 def main():
     compressor = Blosc(cname='zstd', clevel=6, shuffle=Blosc.BITSHUFFLE)
@@ -56,14 +56,22 @@ def main():
 
     accessor = Cloth3DCanonicalAccessor(CLOTH3D_PATH)
 
-    for sample_dir in SIM_DATASET_DIR.iterdir():
+    # for sample_dir in SIM_DATASET_DIR.iterdir():
+    print("Temporary for debugging!")
+    sample_dirs = [
+        Path("/home/dcolli23/code/school/rob599_deeprob/projects/final/garmentnets_tracking/simulation/script_output/full_dataset_attempt_2/00380_Tshirt_509")
+    ]
+    for sample_dir in sample_dirs:
         sample_root_zarr = rows["Tshirt"]["sample_root"]
         compressor_zarr = rows["Tshirt"]["compressor"]
         print(f"Zarrifying '{sample_dir.name}'")
-        zarrify_rest_state(sample_dir, sample_root_zarr, compressor_zarr, accessor)
+        tshirt_group_zarr = zarrify_rest_state(sample_dir, sample_root_zarr, compressor_zarr, accessor)
 
         print(f"Appending dynamics to '{sample_dir.name}' zarr file.")
-        append_dynamics_to_zarr(sample_dir, sample_root_zarr, compressor_zarr, accessor)
+        append_dynamics_to_zarr(sample_dir, tshirt_group_zarr, compressor_zarr, accessor)
+
+        print("debugging so breaking")
+        break
 
 def zarrify_rest_state(sample_dir,
                        # Zarr configuration
@@ -224,33 +232,32 @@ def zarrify_rest_state(sample_dir,
     }
     experiment_group.attrs.put(attrs)
 
-def append_dynamics_to_zarr(sample_dir: Path, sample_root: zarr.hierarchy.Group, compressor,
+    return experiment_group
+
+def append_dynamics_to_zarr(sample_dir: Path, sample_zarr: zarr.hierarchy.Group, compressor,
                             accessor):
-    dynamics_group_zarr = sample_root.require_group('dynamics', overwrite=False)
+    dynamics_group_zarr = sample_zarr.require_group('dynamics', overwrite=False)
     i = 0
     dynamics_seq_dir = sample_dir / DYNAMICS_SEQUENCE_FILENAME_TEMPLATE.format(idx=i)
     while dynamics_seq_dir.exists():
         print(f"Appending '{dynamics_seq_dir.name}' to '{sample_dir.name}' zarr file.")
         # Create the group for this sequence in the zarr file.
-        seq_group = sample_root.require_group(str(i), overwrite=False)
+        seq_group = dynamics_group_zarr.require_group(str(i), overwrite=False)
 
         append_single_dynamics_sequence_to_zarr(dynamics_seq_dir, seq_group, compressor, accessor)
 
         i += 1
         dynamics_seq_dir = sample_dir / DYNAMICS_SEQUENCE_FILENAME_TEMPLATE.format(idx=i)
 
+        print("debugging so breaking")
+        break
+
 def append_single_dynamics_sequence_to_zarr(dynamics_seq_dir: Path,
                                             dynamics_seq_zarr: zarr.hierarchy.Group,
                                             compressor, accessor):
-    # Load the blend file associated with this dynamics simulation.
-    blend_file_path = dynamics_seq_dir / "dynamics_animation.blend"
-    bpy.ops.wm.open_mainfile(filepath=blend_file_path)
-
-    # Get the start and end frame of the animation so we know which images to load. This shouldn't
-    # be necessary but I accidentally hardcoded the number of images to render (200) even though
-    # most simulations are far less.
-    animation_frame_start = bpy.context.scene.animation_data.action.frame_start
-    animation_frame_end = bpy.context.scene.animation_data.action.frame_end
+    # Load the simulation results for this dynamics run
+    results_filepath = dynamics_seq_dir / "dynamics_sim_results.pkl"
+    results_dict = pickle.load(results_filepath.open('rb'))
 
     # Load the metadata
     meta_path = dynamics_seq_dir.joinpath('meta.pk')
@@ -260,24 +267,34 @@ def append_single_dynamics_sequence_to_zarr(dynamics_seq_dir: Path,
     # coordinates corresponding to the points in the point cloud of the dynamics sequence.
 
     # Load in the images.
-    uviz_fnames = dynamics_seq_dir.glob("*.exr")
-    rgb_fnames = dynamics_seq_dir.glob("*.png")
-    assert (len(uviz_fnames) == len(rgb_fnames))
     rows = list()
-    for uviz_fname, rgb_fname in zip(uviz_fnames, rgb_fnames):
-        uviz_path = dynamics_seq_dir / uviz_fname
-        rgb_path = dynamics_seq_dir / rgb_fname
-        uviz_dict = read_uviz(str(uviz_path.absolute()), index_dtype=np.uint8)
-        rgb = skimage.io.imread(str(rgb_path.absolute()))
+    for idx in range(results_dict["simulation_info"]["frame_start"], results_dict["simulation_info"]["frame_end"] + 1):
+        print("Index:", idx)
+        if idx == 0:
+            continue  # No renders for frame 0
+        # pad the idx such that it has prefix zeros to make it 4 digits
+        idx_str = str(idx)
+        num_zeros_to_add = 4 - len(idx_str)
+        idx_str = '0' * num_zeros_to_add + idx_str
+        uviz_filepath = dynamics_seq_dir / f"uviz_0.exr{idx_str}.exr"
+        rgb_filepath = dynamics_seq_dir / f"rgb_0.png{idx_str}.png"
+
+        # print("Reading uviz:", uviz_filepath.absolute().as_posix())
+        uviz_dict = read_uviz(uviz_filepath.absolute().as_posix())
+        rgb = skimage.io.imread(rgb_filepath.absolute().as_posix())
 
         row = uviz_dict
         row['rgb'] = rgb
+
         rows.append(row)
+        # print("debug")
+        # break
     images_df = pd.DataFrame(rows)
 
     # Reformat the images.
     intrinsic = meta['camera']['intrinsic']
-    extrinsic_arr = np.array(list(meta['camera']['extrinsic_list']))[CAMERA_IDX_USED_FOR_ANIMATION]
+    extrinsic_list = list(meta['camera']['extrinsic_list'])
+    extrinsic_arr = np.array(extrinsic_list)[0, ...]
     rgb_arr = np.stack(list(images_df.rgb), axis=0)
     uv_arr = np.stack(list(images_df.uv), axis=0)
     index_arr = np.stack(list(images_df.object_index), axis=0)
@@ -293,24 +310,55 @@ def append_single_dynamics_sequence_to_zarr(dynamics_seq_dir: Path,
     # NOTE: Have to translate by the negative of the amount the camera was translated for dynamics
     # sequence recording.
     point_cloud_arr = np.empty(rgb_arr.shape, dtype=np.float16)
-    assert(depth_arr.shape[0] == rgb_arr.shape[0])
     for i in range(len(depth_arr)):
-        depth = depth_arr[i]
-        extrinsic = extrinsic_arr[i]
+        depth = depth_arr[i, ...]
+        extrinsic = extrinsic_arr
         pc_local = zbuffer_to_pcloud(depth, intrinsic)
         tx_world_camera = np.linalg.inv(extrinsic)
-        pc_global = pc_local @ tx_world_camera[:3,:3].T + tx_world_camera[:3, 3]
-        point_cloud_arr[i] = pc_global
+        pc_global = pc_local @ tx_world_camera[:3,:3].T + tx_world_camera[:3, 3] - CAMERA_Z_OFFSET_ARRAY
+        point_cloud_arr[i, ...] = pc_global
+
+    # extract cloth point cloud
+    pc_points = point_cloud_arr[mask_arr]
+    pc_uv = uv_arr[mask_arr]
+    pc_rgb = rgb_arr[mask_arr]
+    pc_sizes = np.sum(mask_arr, (1,2))
+    assert(np.sum(pc_sizes) == len(pc_points))
 
     # Compute (or pass in) the canonical coordinates for the point cloud.
 
     # Tenative: Compute human/cloth aabb.
     # NOTE: Probably not necessary, right?
 
-    # Compute/find the gripper velocity at each timestep of the simulation.
-    # NOTE: Should we also include acceleration?
-
-    gripper_data = GripperData(blend_file_path)
-
     # Write to Zarr
+    point_cloud_group = dynamics_seq_zarr.require_group('point_cloud', overwrite=True)
+    control_group = dynamics_seq_zarr.require_group('control_input', overwrite=True)
+    cloth_state_group = dynamics_seq_zarr.require_group('cloth_state', overwrite=True)
 
+    # write point cloud arrays
+    pc_data = {
+        'point': pc_points.astype(np.float16),
+        # 'uv': pc_uv.astype(np.float16),
+        # 'rgb': pc_rgb.astype(np.uint8),
+        # 'canonical_point': pc_canonical.astype(np.float16),
+        # 'sizes': pc_sizes.astype(np.int64)
+    }
+    for key, data in pc_data.items():
+        point_cloud_group.array(
+            name=key, data=data, #chunks=data.shape,
+            compressor=compressor, overwrite=True)
+
+    control_dict = {
+        "direction": results_dict['gripper_data']['locations'],
+        "velocities_meters_per_second": results_dict['gripper_data']['locations']
+    }
+    for key, data in control_dict.items():
+        control_group.array(
+            name=key, data=data,# chunks=
+            compressor=compressor, overwrite=True
+        )
+
+    cloth_state_group.array(name="cloth_verts", data=results_dict["cloth_state"]["verts"], overwrite=True)
+
+if __name__ == "__main__":
+    main()
