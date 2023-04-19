@@ -121,7 +121,7 @@ def render_resting_states(render_eevee=True):
         print(f"Took {end_time - start_time}",flush=True)
 
 # %%
-def render_dynamics_animations(render_eevee=True):
+def render_dynamics_animations(render_eevee=True, views_to_render=None):
     # Iterate through the action sequences first so we still get good sample coverage even if we have to
     # stop the rendering early to train
     for seq_idx in range(NUM_ACTION_SEQUENCES):
@@ -157,6 +157,7 @@ def render_dynamics_animations(render_eevee=True):
             gender = garment_meta['gender']
             fabric = garment_meta['garment_fabric']
 
+            print("Manually setting number of camera angles to 4")
             enable_gpu_renders()
             render_dylan(
                 output_path=action_seq_path,
@@ -169,10 +170,11 @@ def render_dynamics_animations(render_eevee=True):
                 garment_uv_verts=cloth_state["uv_verts"],
                 garment_uv_faces=cloth_state["uv_faces"],
                 garment_texture=garment_texture,
-                num_camera_angles=1,
+                num_camera_angles=4,
                 camera_intrinsic=CAMERA_INTRINSIC,
                 render_animation=True,
                 z_offset=CAMERA_Z_OFFSET,
+                views_to_render=views_to_render,
                 render_eevee=render_eevee
             )
             end_time = time.perf_counter()
@@ -185,7 +187,8 @@ if __name__ == "__main__":
     render_eevee = False
     # render_resting_states(render_eevee=render_eevee)
     print("Only rendering dynamics animations!", flush=True)
-    render_dynamics_animations(render_eevee=render_eevee)
+    print("Not rendering view 0! Rendering view 1, 2, 3")
+    render_dynamics_animations(render_eevee=render_eevee, views_to_render=[1, 2, 3])
 # %%
 
 
