@@ -1,6 +1,6 @@
 datamodule:
   # must use the absolute path of dataset to work with hydra
-  zarr_path: ~/dev/garmentnets/data/garmentnets_dataset.zarr/Shirt
+  zarr_path: /media/big_narstie/dfcolli/DataLocker/datasets/garmentnets_tracking/two_shirts_all_trajectories.zarr
   metadata_cache_dir: ~/local/.cache/metadata_cache_dir
   batch_size: 1
   num_workers: 2
@@ -35,7 +35,7 @@ datamodule:
   split_seed: 0
 
 main:
-  checkpoint_path: ~/dev/garmentnets/data/garmentnets_checkpoints/pipeline_checkpoints/TShirt_pipeline.ckpt
+  checkpoint_path: ~/Downloads/garmentnets_checkpoints/local/crv/cchi/data/cloth_3d_workspace/garmentnets_checkpoints/pipeline_checkpoints/Tshirt_pipeline.ckpt
   gpu_id: 0
 prediction:
   # val or test
