@@ -23,11 +23,12 @@ def chamfer_loss(pred_points, gt_points):
     symmetrical_chamfer = (forward_chamfer + backward_chamfer)/2
     return symmetrical_chamfer
 
-def match_points(full_view, partial_view):
+def match_points(full_view, partial_view, full_rgb, partial_rgb):
     """
     Match points in partial view to points in full view. Update the points in the full view with the closest points in the partial view.
     Use Euclidean distance to find closest points Use Pytorch knn
     """
     knn = knn(full_view, partial_view, 1)
     full_view[knn[1]] = partial_view
-    return full_view
+    full_rgb[knn[1]] = partial_rgb
+    return full_view, full_rgb

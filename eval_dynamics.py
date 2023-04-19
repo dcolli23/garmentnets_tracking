@@ -62,9 +62,13 @@ for shirts in tqdm(range(len(samples_group))):
             pointnet_features = model.get_pointnet_features(point_cloud_data)
             state_action = torch.cat((pointnet_features, action.view(1, -1)), dim=1)
             pred = dynamics_mlp(pointnet_features) + point_cloud
-            partial_view = group['dynamics_sequences'][traj_ind]['point_cloud'][f'timestep_{t}']['view_0']['point'].to(device)
-            partial_view = torch.tensor(partial_view).to(device)
-            point_cloud = match_points(pred, partial_view)
+            partial_view_pos = group['dynamics_sequences'][traj_ind]['point_cloud'][f'timestep_{t}']['view_0']['point'].to(device)
+            partial_view_pos = torch.tensor(partial_view_pos).to(device)
+            partial_view_rgb = group['dynamics_sequences'][traj_ind]['point_cloud'][f'timestep_{t}']['view_0']['rgb'].to(device)
+            partial_view_rgb = torch.tensor(partial_view_rgb).to(device)
+
+            
+            point_cloud, x = match_points(pred, partial_view_pos, x, partial_view_rgb)
             # Run point_cloud through GarmentNets to get predictions
             #-----------
 

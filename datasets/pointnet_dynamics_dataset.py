@@ -123,12 +123,12 @@ class PointNetDynamicsDataset(Dataset):
         # aabb
 
     def __len__(self):
-        return len(self.groups_df) * 5 * 75
+        return len(self.groups_df) * 5 * 74
 
     def data_io(self, idx: int) -> dict:
-        dataset_idx = idx // (5 * 75)
-        dyn_seq_idx = (idx % (5 * 75)) // 5
-        pc_idx = (idx % (5 * 75)) % 5
+        dataset_idx = idx // (5 * 74)
+        dyn_seq_idx = (idx % (5 * 74)) // 74
+        pc_idx = (idx % (5 * 74)) % 74
         row = self.groups_df.iloc[dataset_idx]
         group = self.samples_group[row.group_key]
 
@@ -260,6 +260,7 @@ class PointNetDynamicsDataModule(pl.LightningDataModule):
         # train_idxs, val_idxs, test_idxs = split_idx_list
         train_idxs = split_idx_list[0]
         train_subset = Subset(train_dataset, train_idxs)
+
         # val_subset = Subset(val_dataset, val_idxs)
         # test_subset = Subset(val_dataset, test_idxs)
 
@@ -277,8 +278,7 @@ class PointNetDynamicsDataModule(pl.LightningDataModule):
         kwargs = self.kwargs
         batch_size = kwargs['batch_size']
         num_workers = kwargs['num_workers']
-        train_subset = self.train_subset
-        dataloader = DataLoader(train_subset, 
+        dataloader = DataLoader(self.train_dataset, 
             batch_size=batch_size, 
             shuffle=False, 
             num_workers=num_workers)
