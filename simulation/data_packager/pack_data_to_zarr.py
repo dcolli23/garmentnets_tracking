@@ -254,7 +254,7 @@ def append_dynamics_to_zarr(sample_dir: Path, sample_zarr: zarr.hierarchy.Group,
 
 def append_single_dynamics_sequence_to_zarr(dynamics_seq_dir: Path,
                                             dynamics_seq_zarr: zarr.hierarchy.Group,
-                                            compressor, accessor):
+                                            compressor, accessor, max_timestep=200):
     # Load the simulation results for this dynamics run
     results_filepath = dynamics_seq_dir / "dynamics_sim_results.pkl"
     results_dict = pickle.load(results_filepath.open('rb'))
@@ -263,67 +263,126 @@ def append_single_dynamics_sequence_to_zarr(dynamics_seq_dir: Path,
     meta_path = dynamics_seq_dir.joinpath('meta.pk')
     meta = pickle.load(meta_path.open('rb'))
 
-    # Tentative: load the canonical data? Or maybe pass it in if we need it to get canonical
-    # coordinates corresponding to the points in the point cloud of the dynamics sequence.
-
-    # Load in the images.
-    rows = list()
-    for idx in range(results_dict["simulation_info"]["frame_start"], results_dict["simulation_info"]["frame_end"] + 1):
-        print("Index:", idx)
-        if idx == 0:
-            continue  # No renders for frame 0
-        # pad the idx such that it has prefix zeros to make it 4 digits
-        idx_str = str(idx)
-        num_zeros_to_add = 4 - len(idx_str)
-        idx_str = '0' * num_zeros_to_add + idx_str
-        uviz_filepath = dynamics_seq_dir / f"uviz_0.exr{idx_str}.exr"
-        rgb_filepath = dynamics_seq_dir / f"rgb_0.png{idx_str}.png"
-
-        # print("Reading uviz:", uviz_filepath.absolute().as_posix())
-        uviz_dict = read_uviz(uviz_filepath.absolute().as_posix())
-        rgb = skimage.io.imread(rgb_filepath.absolute().as_posix())
-
-        row = uviz_dict
-        row['rgb'] = rgb
-
-        rows.append(row)
-        # print("debug")
-        # break
-    images_df = pd.DataFrame(rows)
-
-    # Reformat the images.
     intrinsic = meta['camera']['intrinsic']
     extrinsic_list = list(meta['camera']['extrinsic_list'])
-    extrinsic_arr = np.array(extrinsic_list)[0, ...]
-    rgb_arr = np.stack(list(images_df.rgb), axis=0)
-    uv_arr = np.stack(list(images_df.uv), axis=0)
-    index_arr = np.stack(list(images_df.object_index), axis=0)
-    # should specify index in meta
-    mask_arr = (index_arr == 1).squeeze()
-    # convert Cycles ray length to CV depth
-    # depth_arr = np.array(list(images_df.depth.apply(
-    #     lambda x: ray_length_to_zbuffer(x, intrinsic))))
-    # in Blender 2.90, Cycle's definition of depth changed to CV depth
-    depth_arr = np.stack(list(images_df.depth), axis=0)
+    extrinsic_arr = np.array(extrinsic_list)
 
-    # Generate point cloud in the global frame.
-    # NOTE: Have to translate by the negative of the amount the camera was translated for dynamics
-    # sequence recording.
-    point_cloud_arr = np.empty(rgb_arr.shape, dtype=np.float16)
-    for i in range(len(depth_arr)):
-        depth = depth_arr[i, ...]
-        extrinsic = extrinsic_arr
-        pc_local = zbuffer_to_pcloud(depth, intrinsic)
-        tx_world_camera = np.linalg.inv(extrinsic)
-        pc_global = pc_local @ tx_world_camera[:3,:3].T + tx_world_camera[:3, 3] - CAMERA_Z_OFFSET_ARRAY
-        point_cloud_arr[i, ...] = pc_global
+    # Find and write the gripper delta positions to zarr.
+    gripper_deltas = np.diff(results_dict["gripper_data"]["locations"], axis=0)
+    assert(gripper_deltas.shape[-1] == 3)
+    gripper_pos_group = dynamics_seq_zarr.array(name="delta_gripper_pos", data=gripper_deltas)
 
-    # extract cloth point cloud
-    pc_points = point_cloud_arr[mask_arr]
-    pc_uv = uv_arr[mask_arr]
-    pc_rgb = rgb_arr[mask_arr]
-    pc_sizes = np.sum(mask_arr, (1,2))
-    assert(np.sum(pc_sizes) == len(pc_points))
+    # For each timestep, for each viewpoint, read in a uviz and rgb image, convert the images to
+    # point clouds, mask it, and then immediately store it in the Zarr.
+    uviz_file_name_template = "uviz_{view_idx}.exr{time_str}.exr"
+    rgb_file_name_template = "rgb_{view_idx}.png{time_str}.png"
+    point_cloud_group = dynamics_seq_zarr.require_group('point_cloud', overwrite=True)
+    for t in range(1, max_timestep + 1):
+        timestep_group = point_cloud_group.require_group(f'timestep_{t}', overwrite=True)
+        for view_idx in range(4):
+            view_group = timestep_group.require_group(f'view_{view_idx}', overwrite=True)
+
+            # pad the idx such that it has prefix zeros to make it 4 digits
+            time_str = str(t)
+            num_zeros_to_add = 4 - len(time_str)
+            time_str = '0' * num_zeros_to_add + time_str
+
+            # Read the UVIZ file information into a dictionary.
+            uviz_file_name = uviz_file_name_template.format(view_idx=view_idx, time_str=time_str)
+            uviz_file_path = dynamics_seq_dir / uviz_file_name
+            uviz_dict = read_uviz(uviz_file_path.absolute().as_posix())
+
+            # Read the RGB file.
+            rgb_file_name = rgb_file_name_template.format(view_idx=view_idx, time_str=time_str)
+            rgb_file_path = dynamics_seq_dir / rgb_file_name
+            rgb_arr = skimage.io.imread(rgb_file_path.absolute().as_posix())
+
+            # Reformat the information we get from UVIZ into arrays.
+            index_arr = np.asarray(uviz_dict["object_index"])
+            depth_arr = np.asarray(uviz_dict["depth"])
+            mask_arr = (index_arr == 1).squeeze()
+
+            # Convert all pixels in the 2D image to points in a point cloud.
+            # point_cloud_arr = np.empty(rgb_arr.shape, dtype=np.float16)
+            # depth = depth_arr[i, ...]
+            extrinsic = extrinsic_arr[view_idx]
+            pc_local = zbuffer_to_pcloud(depth_arr, intrinsic)
+            tx_world_camera = np.linalg.inv(extrinsic)
+            pc_global = pc_local @ tx_world_camera[:3,:3].T + tx_world_camera[:3, 3] - CAMERA_Z_OFFSET_ARRAY
+            point_cloud_arr = pc_global.astype(np.float16)
+
+            # Mask the point cloud such that it only includes points corresponding with the object.
+            pc_points = point_cloud_arr[mask_arr]
+            pc_rgb = rgb_arr[mask_arr]
+
+            # Now write the point cloud to zarr.
+            view_group.array(name="point", data=pc_points, compressor=compressor)
+            view_group.array(name="rgb", data=pc_rgb, compressor=compressor)
+
+    # Load in the images.
+    # rows = list()
+    # # TODO: Add another loop to loop over camera viewpoints (different extrinsics).
+    # for idx in range(results_dict["simulation_info"]["frame_start"], results_dict["simulation_info"]["frame_end"] + 1):
+    #     print("Index:", idx)
+    #     if idx == 0:
+    #         # Frame 0 corresponds to the initial resting state which we already have, so don't
+    #         # include it.
+    #         continue
+    #     # pad the idx such that it has prefix zeros to make it 4 digits
+    #     idx_str = str(idx)
+    #     num_zeros_to_add = 4 - len(idx_str)
+    #     idx_str = '0' * num_zeros_to_add + idx_str
+    #     uviz_filepath = dynamics_seq_dir / f"uviz_0.exr{idx_str}.exr"
+    #     rgb_filepath = dynamics_seq_dir / f"rgb_0.png{idx_str}.png"
+
+    #     # print("Reading uviz:", uviz_filepath.absolute().as_posix())
+    #     uviz_dict = read_uviz(uviz_filepath.absolute().as_posix())
+    #     rgb = skimage.io.imread(rgb_filepath.absolute().as_posix())
+
+    #     row = uviz_dict
+    #     row['rgb'] = rgb
+
+    #     rows.append(row)
+    #     # print("debug")
+    #     # break
+    # images_df = pd.DataFrame(rows)
+
+    # # Reformat the images.
+    # intrinsic = meta['camera']['intrinsic']
+    # extrinsic_list = list(meta['camera']['extrinsic_list'])
+
+
+    # # TODO: Change to use all extrinsics!
+    # extrinsic_arr = np.array(extrinsic_list)[0, ...]
+    # rgb_arr = np.stack(list(images_df.rgb), axis=0)
+    # uv_arr = np.stack(list(images_df.uv), axis=0)
+    # index_arr = np.stack(list(images_df.object_index), axis=0)
+    # # should specify index in meta
+    # mask_arr = (index_arr == 1).squeeze()
+    # # convert Cycles ray length to CV depth
+    # # depth_arr = np.array(list(images_df.depth.apply(
+    # #     lambda x: ray_length_to_zbuffer(x, intrinsic))))
+    # # in Blender 2.90, Cycle's definition of depth changed to CV depth
+    # depth_arr = np.stack(list(images_df.depth), axis=0)
+
+    # # Generate point cloud in the global frame.
+    # # NOTE: Have to translate by the negative of the amount the camera was translated for dynamics
+    # # sequence recording.
+    # point_cloud_arr = np.empty(rgb_arr.shape, dtype=np.float16)
+    # for i in range(len(depth_arr)):
+    #     depth = depth_arr[i, ...]
+    #     extrinsic = extrinsic_arr
+    #     pc_local = zbuffer_to_pcloud(depth, intrinsic)
+    #     tx_world_camera = np.linalg.inv(extrinsic)
+    #     pc_global = pc_local @ tx_world_camera[:3,:3].T + tx_world_camera[:3, 3] - CAMERA_Z_OFFSET_ARRAY
+    #     point_cloud_arr[i, ...] = pc_global
+
+    # # extract cloth point cloud
+    # pc_points = point_cloud_arr[mask_arr]
+    # pc_uv = uv_arr[mask_arr]
+    # pc_rgb = rgb_arr[mask_arr]
+    # pc_sizes = np.sum(mask_arr, (1,2))
+    # assert(np.sum(pc_sizes) == len(pc_points))
 
     # Compute (or pass in) the canonical coordinates for the point cloud.
 
@@ -331,34 +390,35 @@ def append_single_dynamics_sequence_to_zarr(dynamics_seq_dir: Path,
     # NOTE: Probably not necessary, right?
 
     # Write to Zarr
-    point_cloud_group = dynamics_seq_zarr.require_group('point_cloud', overwrite=True)
-    control_group = dynamics_seq_zarr.require_group('control_input', overwrite=True)
-    cloth_state_group = dynamics_seq_zarr.require_group('cloth_state', overwrite=True)
+    # point_cloud_group = dynamics_seq_zarr.require_group('point_cloud', overwrite=True)
+    # control_group = dynamics_seq_zarr.require_group('control_input', overwrite=True)
+    # cloth_state_group = dynamics_seq_zarr.require_group('cloth_state', overwrite=True)
 
     # write point cloud arrays
-    pc_data = {
-        'point': pc_points.astype(np.float16),
-        # 'uv': pc_uv.astype(np.float16),
-        # 'rgb': pc_rgb.astype(np.uint8),
-        # 'canonical_point': pc_canonical.astype(np.float16),
-        # 'sizes': pc_sizes.astype(np.int64)
-    }
-    for key, data in pc_data.items():
-        point_cloud_group.array(
-            name=key, data=data, #chunks=data.shape,
-            compressor=compressor, overwrite=True)
+    # pc_data = {
+    #     'point': pc_points.astype(np.float16),
+    #     # 'uv': pc_uv.astype(np.float16),
+    #     # 'rgb': pc_rgb.astype(np.uint8),
+    #     # 'canonical_point': pc_canonical.astype(np.float16),
+    #     # 'sizes': pc_sizes.astype(np.int64)
+    # }
+    # for key, data in pc_data.items():
+    #     point_cloud_group.array(
+    #         name=key, data=data, #chunks=data.shape,
+    #         compressor=compressor, overwrite=True)
 
-    control_dict = {
-        "direction": results_dict['gripper_data']['locations'],
-        "velocities_meters_per_second": results_dict['gripper_data']['locations']
-    }
-    for key, data in control_dict.items():
-        control_group.array(
-            name=key, data=data,# chunks=
-            compressor=compressor, overwrite=True
-        )
+    # # TODO: Change to just delta gripper position.
+    # control_dict = {
+    #     "direction": results_dict['gripper_data']['locations'],
+    #     "velocities_meters_per_second": results_dict['gripper_data']['locations']
+    # }
+    # for key, data in control_dict.items():
+    #     control_group.array(
+    #         name=key, data=data,# chunks=
+    #         compressor=compressor, overwrite=True
+    #     )
 
-    cloth_state_group.array(name="cloth_verts", data=results_dict["cloth_state"]["verts"], overwrite=True)
+    # cloth_state_group.array(name="cloth_verts", data=results_dict["cloth_state"]["verts"], overwrite=True)
 
 if __name__ == "__main__":
     main()
