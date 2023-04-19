@@ -20,7 +20,7 @@ def chamfer_loss(pred_points, gt_points):
     backward = knn(pred_points, gt_points, 1)
     forward_chamfer = torch.linalg.norm(pred_points - gt_points[forward[1]], dim=1).mean()
     backward_chamfer = torch.linalg.norm(gt_points - pred_points[backward[1]], dim=1).mean()
-    symmetrical_chamfer = torch.mean([forward_chamfer, backward_chamfer])
+    symmetrical_chamfer = (forward_chamfer + backward_chamfer)/2
     return symmetrical_chamfer
 
 def match_points(full_view, partial_view):

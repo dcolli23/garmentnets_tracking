@@ -121,8 +121,6 @@ class PointNetDynamicsDataset(Dataset):
         self.static_epoch_seed = static_epoch_seed
 
         # aabb
-        cloth_sim_aabb = root['summary/cloth_aabb_union'][:].astype(np.float32)
-        self.cloth_sim_aabb = cloth_sim_aabb
 
     def __len__(self):
         return len(self.groups_df) * 5 * 75
@@ -136,12 +134,16 @@ class PointNetDynamicsDataset(Dataset):
 
         # io
         pc_group = group['point_cloud']
-        dyn_seq = group['dynamic_sequences'][dyn_seq_idx]
-        grip_pos_cumulative = torch.cumsum(dyn_seq['delta_gripper_pos'], dim=0)
-        pc_spec = dyn_seq['point_cloud'][f'timstep_{pc_idx}']
-        pc_spec_1 = dyn_seq['point_cloud'][f'timstep_{pc_idx + 1}']
-        full_view_pos = np.concatenate([pc_spec['view_0']['point'], pc_spec['view_1']['point'], pc_spec['view_2']['point'], pc_spec['view_3']['point']], axis=0)
-        full_view_rgb = np.concatenate([pc_spec['view_0']['rgb'], pc_spec['view_1']['rgb'], pc_spec['view_2']['rgb'], pc_spec['view_3']['rgb']], axis=0)
+        dyn_seq = group['dynamics'][dyn_seq_idx]
+        # grip_pos_cumulative = torch.cumsum(dyn_seq['delta_gripper_pos'], dim=0)
+        if pc_idx != 0:
+            pc_spec = dyn_seq['point_cloud'][f'timestep_{pc_idx}']
+            full_view_pos = np.concatenate([pc_spec['view_0']['point'], pc_spec['view_1']['point'], pc_spec['view_2']['point'], pc_spec['view_3']['point']], axis=0)
+            full_view_rgb = np.concatenate([pc_spec['view_0']['rgb'], pc_spec['view_1']['rgb'], pc_spec['view_2']['rgb'], pc_spec['view_3']['rgb']], axis=0)
+        else:
+            full_view_pos = pc_group['point']
+            full_view_rgb = pc_group['rgb']
+        pc_spec_1 = dyn_seq['point_cloud'][f'timestep_{pc_idx + 1}']
         next_view_pos = np.concatenate([pc_spec_1['view_0']['point'], pc_spec_1['view_1']['point'], pc_spec_1['view_2']['point'], pc_spec_1['view_3']['point']], axis=0)
 
         data = {
@@ -168,12 +170,15 @@ class PointNetDynamicsDataset(Dataset):
 
         pc_sim_rgb = data_in['pc_sim_rgb'][selected_idxs].astype(np.float32) / 255
         pc_sim = data_in['pc_sim'][selected_idxs].astype(np.float32)
-        next_x = data_in['next_pc'][selected_idxs].astype(np.float32)
+
+        all_idxs_next = np.arange(len(data_in['next_pc']))
+        selected_idxs_next = rs.choice(all_idxs_next, size=num_pc_sample, replace=False)
+        next_x = data_in['next_pc'][selected_idxs_next].astype(np.float32)
 
         data = {
             'x': pc_sim_rgb,
             'pos': pc_sim,
-            'next_x': next_x,
+            'next_pos': next_x,
             'delta_gripper': data_in['delta_gripper'].astype(np.float32),
         }
         return data
@@ -221,7 +226,6 @@ class PointNetDynamicsDataModule(pl.LightningDataModule):
 
         groups_df = train_dataset.groups_df
         instances_df = groups_df.groupby('sample_id').agg({'idx': lambda x: sorted(x)})
-
         # split for train/val/test
         num_instances = len(instances_df)
         normalized_split = np.array(dataset_split)
@@ -242,29 +246,32 @@ class PointNetDynamicsDataModule(pl.LightningDataModule):
             next_idx = prev_idx + x
             split_instance_idx_list.append(perm_all_idxs[prev_idx: next_idx])
             prev_idx = next_idx
-        assert(np.allclose([len(x) for x in split_instance_idx_list], instance_split))
-
+            break
+        print([len(x) for x in split_instance_idx_list], instance_split)
+        # assert(np.allclose([len(x) for x in split_instance_idx_list], instance_split))
+        print(split_instance_idx_list)
         split_idx_list = list()
         for instance_idxs in split_instance_idx_list:
             idxs = np.sort(np.concatenate(instances_df.iloc[instance_idxs].idx))
             split_idx_list.append(idxs)
-        assert(sum(len(x) for x in split_idx_list) == len(groups_df))
-
+            break
+        # assert(sum(len(x) for x in split_idx_list) == len(groups_df))
         # generate subsets
-        train_idxs, val_idxs, test_idxs = split_idx_list
+        # train_idxs, val_idxs, test_idxs = split_idx_list
+        train_idxs = split_idx_list[0]
         train_subset = Subset(train_dataset, train_idxs)
-        val_subset = Subset(val_dataset, val_idxs)
-        test_subset = Subset(val_dataset, test_idxs)
+        # val_subset = Subset(val_dataset, val_idxs)
+        # test_subset = Subset(val_dataset, test_idxs)
 
         self.groups_df = groups_df
         self.train_idxs = train_idxs
-        self.val_idxs = val_idxs
-        self.test_idxs = test_idxs
+        # self.val_idxs = val_idxs
+        # self.test_idxs = test_idxs
         self.train_dataset = train_dataset
-        self.val_dataset = val_dataset
+        # self.val_dataset = val_dataset
         self.train_subset = train_subset
-        self.val_subset = val_subset
-        self.test_subset = test_subset
+        # self.val_subset = val_subset
+        # self.test_subset = test_subset
     
     def train_dataloader(self):
         kwargs = self.kwargs

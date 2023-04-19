@@ -41,7 +41,7 @@ for epoch in range(EPOCHS):
     for batch_idx, batch_cpu in enumerate(tqdm(dataloader)):
         batch = batch_cpu.to(device=device)
         pointnet2_result = model.pointnet2_forward(batch)
-        features = pointnet2_result['nocs_features']
+        features = pointnet2_result['per_point_features']
         pred = dynamics_mlp(features) + batch.pos
         loss = chamfer_loss(pred, batch.next_pos)
         loss.backward()
