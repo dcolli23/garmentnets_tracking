@@ -41,6 +41,8 @@ def setup_uviz_compositor():
     view_layer.use_pass_uv = True
     view_layer.use_pass_object_index = True
     view_layer.use_pass_emit = True
+    # print("Dylan added to get z values as alpha channel!")
+    view_layer.use_pass_z = True
 
     # create nodes
     nodes = scene.node_tree.nodes

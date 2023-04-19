@@ -7,10 +7,10 @@ import pickle
 
 from simulation.blender_util.render import get_renderer_config, get_default_cycles_config
 from simulation.blender_util.camera import (
-    require_camera, 
+    require_camera,
     get_camera_extrinsic,
     set_camera_extrinsic,
-    get_camera_intrinsic, 
+    get_camera_intrinsic,
     set_camera_intrinsic,
     set_camera_focus_point,
     generate_intrinsic
@@ -22,9 +22,9 @@ from simulation.blender_util.material import (
     get_world_material,
     setup_black_world_material,
     setup_hdri_world_material,
-    setup_metal_materail, 
-    setup_plastic_material, 
-    setup_uv_material, 
+    setup_metal_materail,
+    setup_plastic_material,
+    setup_uv_material,
     setup_white_material,
     setup_textured_bsdf_material,
     require_image
@@ -46,7 +46,7 @@ from simulation.cloth_3d_util.accessors.access_functions import (
 )
 from simulation.blender_util.mesh import (NumpyBMeshManager, require_mesh, set_material)
 from simulation.blender_util.compositor import (
-    setup_trivial_compositor, 
+    setup_trivial_compositor,
     setup_uviz_compositor
 )
 from simulation.blender_util.collection import remove_all_collections
@@ -68,8 +68,8 @@ def enable_gpu_renders():
 
 def render_dylan(output_path, sample_id, garment_name, gender, fabric, garment_verts, garment_faces,
                  garment_uv_verts, garment_uv_faces, garment_texture, num_camera_angles,
-                 camera_intrinsic, render_animation=False, z_offset=-0.8):
-    # NOTE: Assuming we're starting from a saved checkpoint instead of using Cheng's BMesh 
+                 camera_intrinsic, render_animation=False, z_offset=-0.8, render_eevee=True):
+    # NOTE: Assuming we're starting from a saved checkpoint instead of using Cheng's BMesh
     # checkpointing.
 
     # Grab the cloth object
@@ -127,7 +127,7 @@ def render_dylan(output_path, sample_id, garment_name, gender, fabric, garment_v
 
     ## Render Images
 
-    
+
 
     # print(bpy.context.scene.view_layers.keys())
 
@@ -197,12 +197,27 @@ def render_dylan(output_path, sample_id, garment_name, gender, fabric, garment_v
 
             if render_animation:
                 scene = bpy.context.scene
-                scene.frame_start = 1
-                scene.frame_end = 200
+                gripper_obj = bpy.data.objects['Empty']
+                animation_frame_range = gripper_obj.animation_data.action.frame_range
+                frame_start, frame_end = animation_frame_range
+                frame_start = int(frame_start)
+                frame_end = int(frame_end)
+                print(f"Setting render scene frame start/end to {frame_start}/{frame_end}")
+                scene.frame_start = frame_start
+                scene.frame_end = frame_end
+                # scene.frame_start = 1
+                # scene.frame_end = 200
             bpy.ops.render.render(animation=render_animation, write_still=True, use_viewport=False)
         # curr_s = time.perf_counter()
         # print("Render UVIZ: {}".format(curr_s - s))
         # s = curr_s
+    # print("Delete me!!!")
+    # filepath = "/home/dcolli23/code/school/rob599_deeprob/projects/final/garmentnets_tracking/simulation/script_output/render_debug/00380_Tshirt_509/render_debugging_uviz.blend"
+    # bpy.ops.wm.save_as_mainfile(filepath=filepath)
+
+    if not render_eevee:
+        # Temporary debug measure to only render Cycles UVIZ output.
+        return
 
     # rgb
     # assign materials for rgb

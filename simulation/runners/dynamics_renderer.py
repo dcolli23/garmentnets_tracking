@@ -53,7 +53,7 @@ CAMERA_Z_OFFSET = -0.4
 # ## First, Render The Hanging Resting State (GarmentNets Input)
 
 # %%
-def render_resting_states():
+def render_resting_states(render_eevee=True):
     num_camera_angles = 4
     for sample_dir in OUTPUT_ROOT.iterdir():
         start_time = time.perf_counter()
@@ -114,13 +114,14 @@ def render_resting_states():
             garment_texture=garment_texture,
             num_camera_angles=num_camera_angles,
             camera_intrinsic=CAMERA_INTRINSIC,
-            z_offset=CAMERA_Z_OFFSET
+            z_offset=CAMERA_Z_OFFSET,
+            render_eevee=render_eevee
         )
         end_time = time.perf_counter()
         print(f"Took {end_time - start_time}",flush=True)
 
 # %%
-def render_dynamics_animations():
+def render_dynamics_animations(render_eevee=True):
     # Iterate through the action sequences first so we still get good sample coverage even if we have to
     # stop the rendering early to train
     for seq_idx in range(NUM_ACTION_SEQUENCES):
@@ -171,17 +172,20 @@ def render_dynamics_animations():
                 num_camera_angles=1,
                 camera_intrinsic=CAMERA_INTRINSIC,
                 render_animation=True,
-                z_offset=CAMERA_Z_OFFSET
+                z_offset=CAMERA_Z_OFFSET,
+                render_eevee=render_eevee
             )
             end_time = time.perf_counter()
             print(f"Full animation render took: {end_time - start_time}", flush=True)
 
 
 if __name__ == "__main__":
-    print("Only rendering resting states!")
-    render_resting_states()
-    # print("Only rendering dynamics animations!", flush=True)
-    # render_dynamics_animations()
+    # print("Only rendering resting states!")
+    print("Only rendering Cycles!")
+    render_eevee = False
+    # render_resting_states(render_eevee=render_eevee)
+    print("Only rendering dynamics animations!", flush=True)
+    render_dynamics_animations(render_eevee=render_eevee)
 # %%
 
 
