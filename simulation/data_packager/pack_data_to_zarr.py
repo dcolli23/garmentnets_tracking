@@ -36,7 +36,7 @@ CAMERA_IDX_USED_FOR_ANIMATION = 0
 CAMERA_Z_OFFSET = -0.4
 CAMERA_Z_OFFSET_ARRAY = np.array((0.0, 0.0, CAMERA_Z_OFFSET))
 
-def main():
+def main(max_timestep=200):
     compressor = Blosc(cname='zstd', clevel=6, shuffle=Blosc.BITSHUFFLE)
     categories = ["Tshirt"]
     rows = dict()
@@ -56,22 +56,16 @@ def main():
 
     accessor = Cloth3DCanonicalAccessor(CLOTH3D_PATH)
 
-    # for sample_dir in SIM_DATASET_DIR.iterdir():
-    print("Temporary for debugging!")
-    sample_dirs = [
-        Path("/home/dcolli23/code/school/rob599_deeprob/projects/final/garmentnets_tracking/simulation/script_output/full_dataset_attempt_2/00380_Tshirt_509")
-    ]
-    for sample_dir in sample_dirs:
+    for sample_dir in SIM_DATASET_DIR.iterdir():
         sample_root_zarr = rows["Tshirt"]["sample_root"]
         compressor_zarr = rows["Tshirt"]["compressor"]
         print(f"Zarrifying '{sample_dir.name}'")
         tshirt_group_zarr = zarrify_rest_state(sample_dir, sample_root_zarr, compressor_zarr, accessor)
 
         print(f"Appending dynamics to '{sample_dir.name}' zarr file.")
-        append_dynamics_to_zarr(sample_dir, tshirt_group_zarr, compressor_zarr, accessor)
+        append_dynamics_to_zarr(sample_dir, tshirt_group_zarr, compressor_zarr, accessor,
+                                max_timestep=max_timestep)
 
-        print("debugging so breaking")
-        break
 
 def zarrify_rest_state(sample_dir,
                        # Zarr configuration
@@ -235,7 +229,7 @@ def zarrify_rest_state(sample_dir,
     return experiment_group
 
 def append_dynamics_to_zarr(sample_dir: Path, sample_zarr: zarr.hierarchy.Group, compressor,
-                            accessor):
+                            accessor, max_timestep=200):
     dynamics_group_zarr = sample_zarr.require_group('dynamics', overwrite=False)
     i = 0
     dynamics_seq_dir = sample_dir / DYNAMICS_SEQUENCE_FILENAME_TEMPLATE.format(idx=i)
@@ -244,13 +238,11 @@ def append_dynamics_to_zarr(sample_dir: Path, sample_zarr: zarr.hierarchy.Group,
         # Create the group for this sequence in the zarr file.
         seq_group = dynamics_group_zarr.require_group(str(i), overwrite=False)
 
-        append_single_dynamics_sequence_to_zarr(dynamics_seq_dir, seq_group, compressor, accessor)
+        append_single_dynamics_sequence_to_zarr(dynamics_seq_dir, seq_group, compressor, accessor,
+                                                max_timestep=max_timestep)
 
         i += 1
         dynamics_seq_dir = sample_dir / DYNAMICS_SEQUENCE_FILENAME_TEMPLATE.format(idx=i)
-
-        print("debugging so breaking")
-        break
 
 def append_single_dynamics_sequence_to_zarr(dynamics_seq_dir: Path,
                                             dynamics_seq_zarr: zarr.hierarchy.Group,
@@ -270,6 +262,11 @@ def append_single_dynamics_sequence_to_zarr(dynamics_seq_dir: Path,
     # Find and write the gripper delta positions to zarr.
     gripper_deltas = np.diff(results_dict["gripper_data"]["locations"], axis=0)
     assert(gripper_deltas.shape[-1] == 3)
+
+    # Chop off any extraneous gripper delta information.
+    if gripper_deltas.shape[0] > max_timestep:
+        gripper_deltas = gripper_deltas[:max_timestep, :]
+
     gripper_pos_group = dynamics_seq_zarr.array(name="delta_gripper_pos", data=gripper_deltas)
 
     # For each timestep, for each viewpoint, read in a uviz and rgb image, convert the images to
@@ -278,23 +275,36 @@ def append_single_dynamics_sequence_to_zarr(dynamics_seq_dir: Path,
     rgb_file_name_template = "rgb_{view_idx}.png{time_str}.png"
     point_cloud_group = dynamics_seq_zarr.require_group('point_cloud', overwrite=True)
     for t in range(1, max_timestep + 1):
+        if t > results_dict["simulation_info"]["frame_end"] or t == max_timestep:
+            return
+
+        if t % 25 == 0:
+            print(f"\tAppending info for t = {t}")
+
         timestep_group = point_cloud_group.require_group(f'timestep_{t}', overwrite=True)
+
+        # pad the idx such that it has prefix zeros to make it 4 digits
+        time_str = str(t)
+        num_zeros_to_add = 4 - len(time_str)
+        time_str = '0' * num_zeros_to_add + time_str
+
         for view_idx in range(4):
             view_group = timestep_group.require_group(f'view_{view_idx}', overwrite=True)
 
-            # pad the idx such that it has prefix zeros to make it 4 digits
-            time_str = str(t)
-            num_zeros_to_add = 4 - len(time_str)
-            time_str = '0' * num_zeros_to_add + time_str
-
-            # Read the UVIZ file information into a dictionary.
             uviz_file_name = uviz_file_name_template.format(view_idx=view_idx, time_str=time_str)
             uviz_file_path = dynamics_seq_dir / uviz_file_name
+
+            rgb_file_name = rgb_file_name_template.format(view_idx=view_idx, time_str=time_str)
+            rgb_file_path = dynamics_seq_dir / rgb_file_name
+
+            if (not uviz_file_path.exists()) or (not rgb_file_path.exists()):
+                print(f"Detected end of simulation data due to no renders at timestep {t}, view {view_idx}")
+                return
+
+            # Read the UVIZ file information into a dictionary.
             uviz_dict = read_uviz(uviz_file_path.absolute().as_posix())
 
             # Read the RGB file.
-            rgb_file_name = rgb_file_name_template.format(view_idx=view_idx, time_str=time_str)
-            rgb_file_path = dynamics_seq_dir / rgb_file_name
             rgb_arr = skimage.io.imread(rgb_file_path.absolute().as_posix())
 
             # Reformat the information we get from UVIZ into arrays.
@@ -421,4 +431,6 @@ def append_single_dynamics_sequence_to_zarr(dynamics_seq_dir: Path,
     # cloth_state_group.array(name="cloth_verts", data=results_dict["cloth_state"]["verts"], overwrite=True)
 
 if __name__ == "__main__":
-    main()
+    max_timestep = 75
+    print("Limiting maximum timestep to", max_timestep)
+    main(max_timestep)
