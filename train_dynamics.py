@@ -11,7 +11,8 @@ with open('config/dynamics.yaml', 'r') as f:
     cfg = yaml.load(f, Loader=yaml.FullLoader)
 
 EPOCHS = 100
-input_dim = 128
+action_dim = 3
+input_dim = 128 + action_dim
 hidden_dim = 512
 output_dim = 3
 train_loader = None
@@ -42,7 +43,10 @@ for epoch in range(EPOCHS):
         batch = batch_cpu.to(device=device)
         pointnet2_result = model.pointnet2_forward(batch)
         features = pointnet2_result['per_point_features']
-        pred = dynamics_mlp(features) + batch.pos
+        action = batch.delta_gripper
+         
+        feature_action = torch.cat((features, action.view(1, -1).repeat(6000,1)), dim=1).float()
+        pred = dynamics_mlp(feature_action) + batch.pos
         loss = chamfer_loss(pred, batch.next_pos)
         loss.backward()
         optimizer.step()

@@ -19,6 +19,7 @@ from common.cache import file_attr_cache
 from components.gridding import nocs_grid_sample
 from common.geometry_util import (
     barycentric_interpolation, mesh_sample_barycentric, AABBGripNormalizer)
+from common.gripper_util import get_gripper_locs, translate_cloud_to_origin
 
 # helper functions
 # ================
@@ -135,7 +136,11 @@ class PointNetDynamicsDataset(Dataset):
         # io
         pc_group = group['point_cloud']
         dyn_seq = group['dynamics'][dyn_seq_idx]
-        # grip_pos_cumulative = torch.cumsum(dyn_seq['delta_gripper_pos'], dim=0)
+
+        # grip_pos_initial = np.array((0.0, 0.0, 0.4)).reshape(1, 3)
+        grip_pos_cumulative = np.cumsum(dyn_seq['delta_gripper_pos'][:], axis=0)
+        grip_locs = get_gripper_locs(grip_pos_cumulative) 
+
         if pc_idx != 0:
             pc_spec = dyn_seq['point_cloud'][f'timestep_{pc_idx}']
             full_view_pos = np.concatenate([pc_spec['view_0']['point'], pc_spec['view_1']['point'], pc_spec['view_2']['point'], pc_spec['view_3']['point']], axis=0)
@@ -145,6 +150,14 @@ class PointNetDynamicsDataset(Dataset):
             full_view_rgb = pc_group['rgb']
         pc_spec_1 = dyn_seq['point_cloud'][f'timestep_{pc_idx + 1}']
         next_view_pos = np.concatenate([pc_spec_1['view_0']['point'], pc_spec_1['view_1']['point'], pc_spec_1['view_2']['point'], pc_spec_1['view_3']['point']], axis=0)
+
+        # Translate both the full view at t=t-1 and the partial view at t=t clouds back to origin.
+        # Confusing indexing is to preserve dimension.
+        full_view_pos = translate_cloud_to_origin(full_view_pos, grip_locs, pc_idx)
+        next_view_pos = translate_cloud_to_origin(next_view_pos, grip_locs, pc_idx + 1)
+
+        print('full_view_pos min/max', full_view_pos[:, 2].min(), full_view_pos[:, 2].max())
+        print('next_view_pos min/max', next_view_pos[:, 2].min(), next_view_pos[:, 2].max())
 
         data = {
             'pc_sim': full_view_pos[:],
@@ -280,7 +293,7 @@ class PointNetDynamicsDataModule(pl.LightningDataModule):
         num_workers = kwargs['num_workers']
         dataloader = DataLoader(self.train_dataset, 
             batch_size=batch_size, 
-            shuffle=False, 
+            shuffle=True, 
             num_workers=num_workers)
         return dataloader
 
