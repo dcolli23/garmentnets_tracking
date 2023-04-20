@@ -137,8 +137,14 @@ class PointNetDynamicsDataset(Dataset):
         pc_group = group['point_cloud']
         dyn_seq = group['dynamics'][dyn_seq_idx]
 
-        # grip_pos_initial = np.array((0.0, 0.0, 0.4)).reshape(1, 3)
-        grip_pos_cumulative = np.cumsum(dyn_seq['delta_gripper_pos'][:], axis=0)
+        # Need to add a zero delta in front so that our gripper location array starts at the same 
+        # timestep as the dynamics simulation
+        gripper_zero_delta = np.array((0, 0, 0)).reshape(1, 3)
+        gripper_deltas = np.concatenate((
+            gripper_zero_delta, 
+            dyn_seq['delta_gripper_pos'][:]
+        ), axis=0)
+        grip_pos_cumulative = np.cumsum(gripper_deltas, axis=0)
         grip_locs = get_gripper_locs(grip_pos_cumulative) 
 
         if pc_idx != 0:
@@ -155,10 +161,6 @@ class PointNetDynamicsDataset(Dataset):
         # Confusing indexing is to preserve dimension.
         full_view_pos = translate_cloud_to_origin(full_view_pos, grip_locs, pc_idx)
         next_view_pos = translate_cloud_to_origin(next_view_pos, grip_locs, pc_idx + 1)
-
-        print('full_view_pos min/max', full_view_pos[:, 2].min(), full_view_pos[:, 2].max())
-        print('next_view_pos min/max', next_view_pos[:, 2].min(), next_view_pos[:, 2].max())
-
         data = {
             'pc_sim': full_view_pos[:],
             'pc_sim_rgb': full_view_rgb[:],

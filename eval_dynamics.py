@@ -14,6 +14,10 @@ from tqdm import tqdm
 from common.gripper_util import get_gripper_locs, translate_cloud_to_origin, \
     translate_gripper_to_world_frame, GRIPPER_POS_INIT_ARR
 
+FILE_ROOT = os.path.dirname(__file__)
+OUTPUT_DIR = os.path.join(FILE_ROOT, "out")
+if not os.path.isdir(OUTPUT_DIR):
+    os.mkdir(OUTPUT_DIR)
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 rs = np.random.RandomState(seed=None)
@@ -47,6 +51,7 @@ groups_df['idx'] = np.arange(len(groups_df))
 
 #-----------
 with torch.no_grad():
+    errors = []
     for shirts in tqdm(range(len(samples_group))):
         for traj_ind in tqdm(range(5)):
             chamfer_losses = [] 
@@ -56,7 +61,14 @@ with torch.no_grad():
                 group = samples_group[row.group_key]
 
                 # Get gripper location/delta data.
-                gripper_deltas = group['dynamics'][traj_ind]['delta_gripper_pos'][:]
+                # Need to add a zero delta in front so that our gripper location array starts at the same 
+                # timestep as the dynamics simulation
+                gripper_zero_delta = np.array((0, 0, 0)).reshape(1, 3)
+                gripper_deltas = np.concatenate((
+                    gripper_zero_delta, 
+                    group['dynamics'][traj_ind]['delta_gripper_pos'][:]
+                ), axis=0)
+                # gripper_deltas = group['dynamics'][traj_ind]['delta_gripper_pos'][:]
                 grip_pos_cumulative = np.cumsum(gripper_deltas, axis=0)
                 grip_locs = torch.tensor(get_gripper_locs(grip_pos_cumulative), device=device, dtype=torch.float32)
                 
@@ -88,17 +100,16 @@ with torch.no_grad():
                 #However, if we do downsample the point clouds,there could be problems with the proper number of correspondences.
                 #Quick fix: Downsample the full point cloud to 6000 points. Downsample the partial view to 1500 points. Match.
                 action_np = gripper_deltas[t, :]
-                action = torch.tensor(action_np).to(device)
-                pointnet_features = model.pointnet2_forward(point_cloud_data)
-                features = pointnet_features['per_point_features']
+                action = torch.tensor(action_np).to(device).float()
+                # pointnet_features = model.pointnet2_forward(point_cloud_data)
+                # features = pointnet_features['per_point_features']
                 
-            
-                state_action = torch.cat((features, action.view(1, -1).repeat(6000,1)), dim=1).float()
+                # state_action = torch.cat((features, action.view(1, -1).repeat(6000,1)), dim=1).float()
                 
                 # Have to translate the prediction back to the global frame as the `pos` cloud is
                 # in the gripper frame so as to remain in distribution for PointNet++
-                # pred_gripper_frame = action + pos # rigid body translation
-                pred_gripper_frame = dynamics_mlp(state_action) + pos # rigid body translation
+                pred_gripper_frame = action + pos # rigid body translation
+                # pred_gripper_frame = dynamics_mlp(state_action) + pos # rigid body translation
                 pred_world_frame = translate_gripper_to_world_frame(pred_gripper_frame, grip_locs, t).float()
                 
 
@@ -110,12 +121,14 @@ with torch.no_grad():
                 partial_view_pos = torch.tensor(partial_view_pos[selected_idxs_next,:]).to(device).float()
                 partial_view_rgb =  torch.tensor(partial_view_rgb[selected_idxs_next]).to(device).float() / 255
 
-                
-                # pos, x = match_points(pred, partial_view_pos, x, partial_view_rgb)
+                # If we want to do matching, uncomment.
+                partial_view_pos = translate_cloud_to_origin(partial_view_pos, grip_locs, t)
+                pos, x = match_points(pred_gripper_frame, partial_view_pos, x, partial_view_rgb)
 
+                
                 # When we move to using `match_points`, the partial view point cloud positions will 
                 # need to be translated to the gripper frame by using `translate_cloud_to_origin`
-                pos, x  = pred_gripper_frame, x
+                # pos, x  = pred_gripper_frame, x
 
                 #TO DO: Run point_cloud through GarmentNets to get predictions 
                 #-----------
@@ -128,11 +141,20 @@ with torch.no_grad():
                 full_view_gt_pc= np.concatenate([group['dynamics'][traj_ind]['point_cloud'][f'timestep_{t+1}'][f'view_{i}']['point'][:] for i in range(4)], axis=0)
                 
                 all_idxs_next = np.arange(len(full_view_gt_pc))
-                selected_idxs_next = rs.choice(all_idxs_next, size=1500, replace=False)
+                selected_idxs_next = rs.choice(all_idxs_next, size=6000, replace=False)
                 full_view_gt_pc = torch.tensor(full_view_gt_pc[selected_idxs_next,:]).to(device).float()
                 
                 chamfer_losses.append(chamfer_loss(pred_world_frame, full_view_gt_pc).item())
             print(chamfer_losses)
+            errors.append(chamfer_losses)
+            all_errors_np = np.array(errors)
+            np.save(os.path.join(OUTPUT_DIR, "most_recent_eval_errors.npy"), all_errors_np)
+
+    all_errors_np = np.array(errors)
+    
+
+    print(all_errors_np.mean(0))
+    print(all_errors_np.std(0))
 
 
 

@@ -127,3 +127,4 @@ output/
 outputs
 
 datasets/two_shirts_all_trajectories_backup.zarr/*
+*.zarr/

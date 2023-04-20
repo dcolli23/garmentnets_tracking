@@ -1,6 +1,6 @@
 datamodule:
   # must use the absolute path of dataset to work with hydra
-  zarr_path: /home/armlab/Downloads/two_shirts_all_trajectories.zarr/Tshirt
+  zarr_path: /home/yatin/Documents/Class/ROB599_DL/Final_project2/garmentnets_tracking/datasets/garmentnets_tracking_simulation_dataset_train.zarr/Tshirt
   metadata_cache_dir: ~/local/.cache/metadata_cache_dir
   batch_size: 1
   num_workers: 2
