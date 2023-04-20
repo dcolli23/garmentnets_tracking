@@ -21,8 +21,13 @@ def get_renderer_config(renderer):
     return config
 
 def set_renderer_config(renderer, config):
+    print("Setting render configuration and printing failed sets.")
     for key, value in config.items():
-        setattr(renderer, key, value)
+        # print(f"\t{key} = {value}")
+        try:
+            setattr(renderer, key, value)
+        except:
+            print(f"\t{key}")
 
 def get_default_eevee_config():
     # These parameters might change with blender major version.
@@ -224,15 +229,19 @@ def setup_eevee(config=get_default_eevee_config()):
 
     set_renderer_config(scene.eevee, config)
 
-def setup_cycles(config=get_default_cycles_config()):
+def setup_cycles(config=get_default_cycles_config(), use_light_tree=True):
     scene = bpy.context.scene
 
     scene.render.engine = 'CYCLES'
+    # NOTE Dylan: This doesn't appear to be supported anymore.
     # maximize GPU throughput by setting one tile per image
-    scene.render.tile_x = scene.render.resolution_x
-    scene.render.tile_y = scene.render.resolution_y
+    # scene.render.tile_x = scene.render.resolution_x
+    # scene.render.tile_y = scene.render.resolution_y
     # disable AA
     scene.render.filter_size = 0.0
+
+    # Dylan: Trying to stop the light tree from building since that takes the majority of the time.
+    scene.cycles.use_light_tree = use_light_tree
 
     set_renderer_config(scene.cycles, config)
 
@@ -278,7 +287,9 @@ def setup_exr_output(output_path='data/output/###.exr'):
     scene.render.filepath = output_path
     scene.render.image_settings.file_format = 'OPEN_EXR'
     scene.render.image_settings.exr_codec = 'ZIP'
+    print("Dylan need to change use zbuffer to True??")
     scene.render.image_settings.use_zbuffer = False
+    # scene.render.image_settings.use_zbuffer = True
     scene.render.image_settings.color_mode = 'RGBA'
     scene.render.image_settings.color_depth = '16'
 
