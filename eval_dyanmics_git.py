@@ -1,5 +1,4 @@
 
- 
 
 import torch
 from networks.conv_implicit_wnf import ConvImplicitWNFPipeline
@@ -104,15 +103,17 @@ with torch.no_grad():
                 #Quick fix: Downsample the full point cloud to 6000 points. Downsample the partial view to 1500 points. Match.
                 action_np = gripper_deltas[t, :]
                 action = torch.tensor(action_np).to(device).float()
-                # pointnet_features = model.pointnet2_forward(point_cloud_data)
-                # features = pointnet_features['per_point_features']
+                pointnet_features = model.pointnet2_forward(point_cloud_data)
+                features = pointnet_features['per_point_features']
                 
-                # state_action = torch.cat((features, action.view(1, -1).repeat(6000,1)), dim=1).float()
+                state_action = torch.cat((features, action.view(1, -1).repeat(6000,1)), dim=1).float()
                 
                 # Have to translate the prediction back to the global frame as the `pos` cloud is
                 # in the gripper frame so as to remain in distribution for PointNet++
-                pred_gripper_frame = action + pos # rigid body translation
-                # pred_gripper_frame = dynamics_mlp(state_action) + pos # rigid body translation
+                # pred_gripper_frame = action + pos # rigid body translation
+                pred_gripper_frame = dynamics_mlp(state_action) + pos # rigid body translation
+                print("Local frame max position:", torch.max(pred_gripper_frame,dim=0)[0],"Local frame min position",torch.min(pred_gripper_frame,dim=0)[0])
+                
                 pred_world_frame = translate_gripper_to_world_frame(pred_gripper_frame, grip_locs, t).float()
                 
 
@@ -127,12 +128,11 @@ with torch.no_grad():
                 # If we want to do matching, uncomment.
                 # partial_view_pos = translate_cloud_to_origin(partial_view_pos, grip_locs, t)
                 # pos, x = match_points(pred_gripper_frame, partial_view_pos, x, partial_view_rgb)
-                # pred_world_frame = translate_gripper_to_world_frame(pos, grip_locs, t).float()
 
                 
                 # When we move to using `match_points`, the partial view point cloud positions will 
                 # need to be translated to the gripper frame by using `translate_cloud_to_origin`
-                # pos, x  = pred_gripper_frame, x
+                pos, x  = pred_gripper_frame, x
 
                 #TO DO: Run point_cloud through GarmentNets to get predictions 
                 #-----------
@@ -159,3 +159,6 @@ with torch.no_grad():
 
     print(all_errors_np.mean(0))
     print(all_errors_np.std(0))
+
+
+ 

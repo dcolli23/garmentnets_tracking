@@ -79,11 +79,12 @@ class PointNetDynamicsDataset(Dataset):
 
         # extract common info from sample group
         _, sample_group = next(samples_group.groups())
-        print(sample_group.tree())
+        # print(sample_group.tree())
 
         # load group metadata
         groups_df = file_attr_cache(zarr_path, 
             cache_dir=metadata_cache_dir)(_get_groups_df)(samples_group)
+        print(len(groups_df))
         # check if index is sorted
         assert(groups_df.index.is_monotonic_increasing)
         groups_df['idx'] = np.arange(len(groups_df))
@@ -152,7 +153,7 @@ class PointNetDynamicsDataset(Dataset):
             full_view_pos = np.concatenate([pc_spec['view_0']['point'], pc_spec['view_1']['point'], pc_spec['view_2']['point'], pc_spec['view_3']['point']], axis=0)
             full_view_rgb = np.concatenate([pc_spec['view_0']['rgb'], pc_spec['view_1']['rgb'], pc_spec['view_2']['rgb'], pc_spec['view_3']['rgb']], axis=0)
         else:
-            full_view_pos = pc_group['point']
+            full_view_pos = pc_group['point'] + np.array((0.0, 0.0, 0.4),dtype=float).reshape(1, 3)
             full_view_rgb = pc_group['rgb']
         pc_spec_1 = dyn_seq['point_cloud'][f'timestep_{pc_idx + 1}']
         next_view_pos = np.concatenate([pc_spec_1['view_0']['point'], pc_spec_1['view_1']['point'], pc_spec_1['view_2']['point'], pc_spec_1['view_3']['point']], axis=0)
@@ -160,7 +161,7 @@ class PointNetDynamicsDataset(Dataset):
         # Translate both the full view at t=t-1 and the partial view at t=t clouds back to origin.
         # Confusing indexing is to preserve dimension.
         full_view_pos = translate_cloud_to_origin(full_view_pos, grip_locs, pc_idx)
-        next_view_pos = translate_cloud_to_origin(next_view_pos, grip_locs, pc_idx + 1)
+        next_view_pos = translate_cloud_to_origin(next_view_pos, grip_locs, pc_idx)
         data = {
             'pc_sim': full_view_pos[:],
             'pc_sim_rgb': full_view_rgb[:],
@@ -236,6 +237,7 @@ class PointNetDynamicsDataModule(pl.LightningDataModule):
         train_args = dict(kwargs)
         train_args['static_epoch_seed'] = False
         train_dataset = PointNetDynamicsDataset(**train_args)
+        print('len dataset', len(train_dataset))
         val_dataset = copy.deepcopy(train_dataset)
         val_dataset.static_epoch_seed = True
 
