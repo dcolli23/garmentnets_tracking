@@ -1,6 +1,6 @@
 datamodule:
   # must use the absolute path of dataset to work with hydra
-  zarr_path: ~/dev/garmentnets/data/garmentnets_dataset.zarr/Shirt
+  zarr_path: /home/yatin/Documents/Class/ROB599_DL/Final_project2/garmentnets_tracking/datasets/garmentnets_tracking_simulation_dataset_train.zarr/Tshirt
   metadata_cache_dir: ~/local/.cache/metadata_cache_dir
   batch_size: 1
   num_workers: 2
@@ -31,11 +31,11 @@ datamodule:
   # random seed
   static_epoch_seed: False
   # datamodule config
-  dataset_split: [8,1,1]
+  dataset_split: [10,0,0]
   split_seed: 0
 
 main:
-  checkpoint_path: ~/dev/garmentnets/data/garmentnets_checkpoints/pipeline_checkpoints/TShirt_pipeline.ckpt
+  checkpoint_path: /home/yatin/Documents/Class/ROB599_DL/Final_project/garmentnets_tracking/data/garmentnets_checkpoints/pipeline_checkpoints/Tshirt_pipeline.ckpt
   gpu_id: 0
 prediction:
   # val or test
