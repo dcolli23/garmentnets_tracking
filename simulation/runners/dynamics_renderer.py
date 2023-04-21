@@ -11,6 +11,7 @@ import sys
 from pathlib import Path
 import pickle
 import time
+import argparse
 
 import bpy
 import mathutils
@@ -53,8 +54,8 @@ CAMERA_Z_OFFSET = -0.4
 # ## First, Render The Hanging Resting State (GarmentNets Input)
 
 # %%
-def render_resting_states(render_eevee=True):
-    num_camera_angles = 4
+def render_resting_states(render_depth=True, render_rgb=True, num_camera_angles=4,
+                          views_to_render=None):
     for sample_dir in OUTPUT_ROOT.iterdir():
         start_time = time.perf_counter()
         sample_key = sample_dir.name
@@ -115,13 +116,16 @@ def render_resting_states(render_eevee=True):
             num_camera_angles=num_camera_angles,
             camera_intrinsic=CAMERA_INTRINSIC,
             z_offset=CAMERA_Z_OFFSET,
-            render_eevee=render_eevee
+            views_to_render=views_to_render,
+            render_rgb=render_rgb,
+            render_depth=render_depth
         )
         end_time = time.perf_counter()
         print(f"Took {end_time - start_time}",flush=True)
 
 # %%
-def render_dynamics_animations(render_eevee=True):
+def render_dynamics_animations(render_depth=True, render_rgb=True, num_camera_angles=4,
+                               views_to_render=None):
     # Iterate through the action sequences first so we still get good sample coverage even if we have to
     # stop the rendering early to train
     for seq_idx in range(NUM_ACTION_SEQUENCES):
@@ -169,23 +173,47 @@ def render_dynamics_animations(render_eevee=True):
                 garment_uv_verts=cloth_state["uv_verts"],
                 garment_uv_faces=cloth_state["uv_faces"],
                 garment_texture=garment_texture,
-                num_camera_angles=1,
+                num_camera_angles=num_camera_angles,
                 camera_intrinsic=CAMERA_INTRINSIC,
                 render_animation=True,
                 z_offset=CAMERA_Z_OFFSET,
-                render_eevee=render_eevee
+                views_to_render=views_to_render,
+                render_rgb=render_rgb,
+                render_depth=render_depth
             )
             end_time = time.perf_counter()
             print(f"Full animation render took: {end_time - start_time}", flush=True)
 
 
 if __name__ == "__main__":
-    # print("Only rendering resting states!")
-    print("Only rendering Cycles!")
-    render_eevee = False
-    # render_resting_states(render_eevee=render_eevee)
-    print("Only rendering dynamics animations!", flush=True)
-    render_dynamics_animations(render_eevee=render_eevee)
+    parser = argparse.ArgumentParser()
+    # Can pass --no-render-depth and --no-render-rgb to disable the rendering.
+    parser.add_argument("--render-depth", default=True, action=argparse.BooleanOptionalAction)
+    parser.add_argument("--render-rgb", default=True, action=argparse.BooleanOptionalAction)
+    parser.add_argument("--render-resting-state", default=True,
+                        action=argparse.BooleanOptionalAction)
+    parser.add_argument("--render-dynamics", default=True, action=argparse.BooleanOptionalAction)
+    parser.add_argument("--num-camera-angles", default=4, type=int)
+    parser.add_argument("--views-to-render", type=str, default=None)
+    # parser.add_argument("--max-sim-frame", type=int, default=None)
+
+    args = dict(parser.parse_args()._get_kwargs())
+
+    # Populate the arguments
+    if args['views_to_render'] is None:
+        args['views_to_render'] = list(range(args['num_camera_angles']))
+    else:
+        args['views_to_render'] = [int(v) for v in args['views_to_render'].split(',')]
+        assert (len(args['views_to_render']) <= args['num_camera_angles'])
+        assert (max(args['views_to_render']) < args['num_camera_angles'])
+        assert (min(args['views_to_render']) >= 0)
+
+    render_resting_state = args.pop("render_resting_state")
+    render_dynamics = args.pop("render_dynamics")
+    if render_resting_state:
+        render_resting_states(**args)
+    if render_dynamics:
+        render_dynamics_animations(**args)
 # %%
 
 

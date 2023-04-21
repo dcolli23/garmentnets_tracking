@@ -68,7 +68,8 @@ def enable_gpu_renders():
 
 def render_dylan(output_path, sample_id, garment_name, gender, fabric, garment_verts, garment_faces,
                  garment_uv_verts, garment_uv_faces, garment_texture, num_camera_angles,
-                 camera_intrinsic, render_animation=False, z_offset=-0.8, render_eevee=True):
+                 camera_intrinsic, render_animation=False, z_offset=-0.8, render_rgb=True,
+                 render_depth=True, views_to_render=None):
     # NOTE: Assuming we're starting from a saved checkpoint instead of using Cheng's BMesh
     # checkpointing.
 
@@ -97,12 +98,16 @@ def render_dylan(output_path, sample_id, garment_name, gender, fabric, garment_v
         extrinsic = get_camera_extrinsic(camera_obj)
         camera_extrinsic_list.append(extrinsic)
 
+    # Determine the views we should render.
+    if views_to_render is None:
+        views_to_render = [i for i in range(num_camera_angles)]
+
     # generate output filenames
     output_dir = Path(output_path)
     pickle_path = str(output_dir.joinpath('meta.pk').absolute())
     uviz_paths = list()
     rgb_paths = list()
-    for i in range(num_camera_angles):
+    for i in views_to_render:
         uviz_paths.append(str(output_dir.joinpath(
             'uviz_{}.exr'.format(i)).absolute()))
         rgb_paths.append(str(output_dir.joinpath(
@@ -178,11 +183,7 @@ def render_dylan(output_path, sample_id, garment_name, gender, fabric, garment_v
     # setup pass index for object index channel
     cloth_obj.pass_index = 1
 
-    render_cycles = True
-
-
-
-    if render_cycles:
+    if render_depth:
         # setup output
         setup_cycles(get_cycles_uviz_config(), use_light_tree=False)
         setup_color_management_raw()
@@ -191,9 +192,14 @@ def render_dylan(output_path, sample_id, garment_name, gender, fabric, garment_v
         # s = curr_s
 
         # render
-        for i in range(num_camera_angles):
-            setup_exr_output(uviz_paths[i])
-            set_camera_extrinsic(camera_obj, camera_extrinsic_list[i])
+        for i, view_idx in enumerate(views_to_render):
+            uviz_path = uviz_paths[i]
+            print("Rendering uviz path:", uviz_path)
+            setup_exr_output(uviz_path)
+
+            extrin = camera_extrinsic_list[view_idx]
+            print("Using camera extrinsic:", extrin)
+            set_camera_extrinsic(camera_obj, extrin)
 
             if render_animation:
                 scene = bpy.context.scene
@@ -215,16 +221,13 @@ def render_dylan(output_path, sample_id, garment_name, gender, fabric, garment_v
     # filepath = "/home/dcolli23/code/school/rob599_deeprob/projects/final/garmentnets_tracking/simulation/script_output/render_debug/00380_Tshirt_509/render_debugging_uviz.blend"
     # bpy.ops.wm.save_as_mainfile(filepath=filepath)
 
-    if not render_eevee:
-        # Temporary debug measure to only render Cycles UVIZ output.
+    if not render_rgb:
         return
 
-    # rgb
+    ## RGB Rendering
     # assign materials for rgb
     world_material = get_world_material()
-
     setup_hdri_world_material(world_material, hdri_path=HDRI_PATH)
-
     set_material(cloth_obj, cloth_material)
 
     # setup compositor
@@ -233,19 +236,24 @@ def render_dylan(output_path, sample_id, garment_name, gender, fabric, garment_v
     # setup output
     setup_eevee(get_eevee_rgb_config())
     setup_color_management_srgb()
-    # curr_s = time.perf_counter()
-    # print("Setup RGB: {}".format(curr_s - s))
-    # s = curr_s
 
     # render
-    for i in range(num_camera_angles):
-        setup_png_output(rgb_paths[i])
-        set_camera_extrinsic(camera_obj, camera_extrinsic_list[i])
+    for i, view_idx in enumerate(views_to_render):
+        rgb_path = rgb_paths[i]
+        print("Rendering", rgb_path)
+        setup_png_output(rgb_path)
+        set_camera_extrinsic(camera_obj, camera_extrinsic_list[view_idx])
 
         if render_animation:
             scene = bpy.context.scene
-            scene.frame_start = 1
-            scene.frame_end = 200
+            gripper_obj = bpy.data.objects['Empty']
+            animation_frame_range = gripper_obj.animation_data.action.frame_range
+            frame_start, frame_end = animation_frame_range
+            frame_start = int(frame_start)
+            frame_end = int(frame_end)
+            print(f"Setting render scene frame start/end to {frame_start}/{frame_end}")
+            scene.frame_start = frame_start
+            scene.frame_end = frame_end
         bpy.ops.render.render(animation=render_animation, write_still=True, use_viewport=False)
     # curr_s = time.perf_counter()
     # print("Render RGB: {}".format(curr_s - s))
