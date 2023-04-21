@@ -1,6 +1,6 @@
 # GarmentNets Tracking
 
-This is a fork of GarmentNets for the goal of extending GarmentNets' single prediction to tracking deformables.
+This is a fork of GarmentNets for the goal of extending GarmentNets' single prediction to tracking deformables. The code in this repository was written by Dylan Colli, Yating Lin, and Abhinav Kumar for the University of Michigan ROB 599, "DeepRob: Deep Learning for Robot Perception" course.
 
 Table of Contents
 - [GarmentNets Tracking](#garmentnets-tracking)
@@ -11,7 +11,7 @@ Table of Contents
       - [Python Environment](#python-environment)
       - [Data Downloads](#data-downloads)
     - [Successful Run](#successful-run)
-    - [Simulation](#simulation)
+  - [Simulation](#simulation)
 - [Original GarmentNets Documentation](#original-garmentnets-documentation)
   - [Cite this work](#cite-this-work)
   - [Datasets](#datasets)
@@ -71,7 +71,7 @@ For this residual prediction to work, the PointNet++ model will have to cover a 
 
 I had a horrible time trying to get Anaconda to work (I already don't like it and this reaffirmed my opinion), so I decided to just use my existing Python environment. That's basically one step forward and two steps back, but I just needed to get this to work.
 
-I've added a pip requirements.txt named, "garmentnets_pip_requirements.txt" to help with package installs. 
+I've added a pip requirements.txt named, "garmentnets_pip_requirements.txt" to help with package installs.
 This has lots of extraneous packages but should help with figuring out which package versions are necessary to get this running.
 You'll probably have to run GarmentNets multiple times to see which packages are required but not installed, then install them.
 
@@ -124,16 +124,15 @@ I was able to do a successful run by doing the following:
     python3 eval.py main.prediction_output_dir=$GARMENTNETS_ROOT/outputs/2023-04-01/23-09-36
     ```
 
-### Simulation
+## Simulation
 
-Cheng did the simulation with Blender and has shared the repository with me.
-I will be porting the simulation pipeline code as I work with it.
+For the original GarmentNets publication, Cheng did the simulation with Blender and has shared the repository with me. However, this code is several years old and relied on a Blender version that is significantly outdated. Due to this, I had to put in significant effort to revive the code. As such, I rewrote most of the code and only ported over the pertinent utility functions.
 
-The [simulation pipeline README](./simulation/README.md) details my thoughts as I work through it.
+The [simulation pipeline README](./simulation/README.md) *verbosely* details my thoughts as I worked through this process in addition to how to run the simulation pipeline.
 
 # Original GarmentNets Documentation
 
-This repository contains the source code for the paper [GarmentNets:
+As this repository is a fork of the original GarmentNets repository, this README also contains the documentation included with that repository in an attempt to make this work as reproducible as possible. The following is the original documentation for the repository that contains the source code for the paper [GarmentNets:
 Category-Level Pose Estimation for Garments via Canonical Space Shape Completion](https://garmentnets.cs.columbia.edu/). This paper has been accepted to ICCV 2021.
 
 ![Overview](assets/teaser_web.png)
