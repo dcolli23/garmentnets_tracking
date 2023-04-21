@@ -1,3 +1,6 @@
+"""Script that was extracted from Cheng's Blender simulation repository. The skeleton of this
+was extracted and used to build our Zarr pipeline.
+"""
 # %%
 # Change CWD (Cheng's workflow)
 # Instead, use sys to append paths the the system path to find all modules.

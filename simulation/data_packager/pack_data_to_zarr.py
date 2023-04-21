@@ -19,8 +19,6 @@ from simulation.cloth_3d_util.util import quads2tris, axis_angle_to_matrix
 from simulation.common.igl_util import query_uv_barycentric
 from simulation.data_packager.cloth_3d_canonical_accessor import Cloth3DCanonicalAccessor
 
-# Trying to avoid this import as it will execute the Zarr packaging code as is.
-# from simulation.data_packager.smpl_cloth_zarr_v5_cheng import Cloth3DCanonicalAccessor
 
 FILE_ROOT = Path(os.getcwd())
 print("File root:", FILE_ROOT)
