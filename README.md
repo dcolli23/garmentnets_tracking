@@ -15,7 +15,7 @@ Table of Contents
 - [Original GarmentNets Documentation](#original-garmentnets-documentation)
   - [Cite this work](#cite-this-work)
   - [Datasets](#datasets)
-  - [🆕 Sample Datasets](#-sample-datasets)
+  - [Sample Datasets](#sample-datasets)
   - [Pretrained Models](#pretrained-models)
   - [Usage](#usage)
     - [Installation](#installation-1)
@@ -169,7 +169,7 @@ and then combine the part files into a complete tar file for extraction:
 $ cat garmentnets_dataset.zarr.tar.part* > garmentnets_dataset.zarr.tar
 ```
 
-## 🆕 Sample Datasets
+## Sample Datasets
 Upon popular demand, we added a small subset of our datasets, which contains 25 instances of the `Tshirt` category. We are also working on alternative ways to host the complete datasets for reserchers outside of the United States.
 1. [GarmentNets Dataset Sample](https://garmentnets.cs.columbia.edu/dataset/garmentnets_dataset_sample.zarr.tar.gz)
 
