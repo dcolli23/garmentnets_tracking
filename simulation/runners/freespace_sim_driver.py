@@ -23,7 +23,7 @@ from simulation.blender_util_dylan.debug import print_obj_keyframe_coordinates
 FILE_ROOT = Path(os.path.dirname(__file__))
 CLOTH3D_PATH = Path(os.path.expanduser("~/DataLocker/datasets/CLOTH3D/training/"))
 OUTPUT_ROOT = FILE_ROOT / ".." / "script_output" / "full_dataset_attempt_2"
-GARMENTNETS_SAMPLE_DATASET_ZARR = (FILE_ROOT / ".." / ".." / "data" / 
+GARMENTNETS_SAMPLE_DATASET_ZARR = (FILE_ROOT / ".." / ".." / "data" /
                                    "garmentnets_simulation_dataset_sample.zarr")
 assert (GARMENTNETS_SAMPLE_DATASET_ZARR.exists())
 GARMENTNETS_SAMPLE_PATH = ["Tshirt", "samples"]
@@ -39,7 +39,7 @@ def simulate_all_sequences(sample_configs, overwrite=False):
         # control_sequences = dynamics_control_sequences[sample_key]
         print("Simulating Dynamics for Sample:", sample_key)
 
-        
+
         # accessor = Cloth3DCanonicalAccessor(CLOTH3D_PATH)
         sample_dir = OUTPUT_ROOT / sample_key
         sample_dir.mkdir(exist_ok=True)
@@ -57,7 +57,11 @@ def simulate_all_sequences(sample_configs, overwrite=False):
 
             # Reset the environment to the simulated resting state
             checkpointer.load_hanging_rest_state()
-            
+
+            # This trajectory directory should have been created in the freespace simulation prep
+            # notebook and contain the description of the gripper control sequence. Thus, if it
+            # doesn't exist, we can't run the simulation as we don't have a gripper control sequence
+            # generated.
             seq_dir = sample_dir / f"dynamics_seq_{seq_idx}"
             assert (seq_dir.exists())
 
@@ -81,9 +85,9 @@ def simulate_all_sequences(sample_configs, overwrite=False):
 
             # for vec in direction_vecs:
             for action in control_sequence:
-                gripper_animation.add_movement(action["direction_vec"], action["velocity"], 
+                gripper_animation.add_movement(action["direction_vec"], action["velocity"],
                                             action["frame_duration"])
-            
+
             # Now bake the sim.
             bpy.ops.ptcache.bake_all()
 
@@ -107,6 +111,6 @@ def main():
     # for config in sample_configs:
     #     print(config)
     simulate_all_sequences(sample_configs, overwrite=False)
-            
+
 if __name__ == "__main__":
     main()
