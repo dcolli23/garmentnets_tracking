@@ -17,7 +17,7 @@ Table of Contents
   - [Sample Datasets](#sample-datasets)
   - [Pretrained Models](#pretrained-models)
   - [Usage](#usage)
-    - [Installation](#installation-1)
+    - [Installation](#installation)
     - [Evaluation](#evaluation)
     - [Training](#training)
 
@@ -33,11 +33,11 @@ conda activate garmentnets
 
 ### Data Download
 
-TBD Dylan
+We provide a minimal test set that can be [downloaded at this link](https://drive.google.com/drive/folders/1MIcf4LjCprNpu2Wf8OQojtkNcPEWQkms?usp=sharing).
 
 ### Model Download
 
-Please reference [Pretrained Models](#pretrained-models) to obtain pretrained models. 
+Please reference [Pretrained Models](#pretrained-models) to obtain pretrained models.
 
 ### Configuring the Evaluation
 
