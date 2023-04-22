@@ -152,3 +152,8 @@ To train stage 1 from scratch:
 ```
 (garmentnets)$ python train_pointnet2.py datamodule.zarr_path=<PROJECT_ROOT>/data/garmentnets_dataset.zarr
 ```
+### Training dynamics
+Given the action, training the dynamics for point clouds by chamfer loss.
+
+### Evaluation garmentnet dynamics
+Combined with learned dynamics and filtering matching, evaluate the predict garment mesh for each tracking steps.
