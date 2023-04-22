@@ -1,4 +1,4 @@
-name: garnments
+name: garments
 channels:
   - pytorch
   - pyg
