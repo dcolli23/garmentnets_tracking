@@ -27,9 +27,11 @@ Table of Contents
 
 We provide a conda environment configuration for installing necessary packages in `environment.yml`. This environment can be installed by executing the following:
 ```
-conda env create -n garmentnets --file environment.yml
-conda activate garmentnets
+conda env create --file garments.yml
+conda activate garments
 ```
+
+Our environment is slightly different from the environment provided with the original source code.
 
 ### Data Download
 
