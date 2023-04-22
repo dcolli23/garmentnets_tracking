@@ -272,7 +272,7 @@ def main(cfg: DictConfig) -> None:
                     
                     chamfer_losses.append(chamfer_loss(pred_world_frame, full_view_gt_pc).item())
                     
-                    if t == 20 and PLOT:
+                    if t == 35 and PLOT:
                         fig2 = go.Figure()
                         pred_local_frame = translate_cloud_to_origin(pred_world_frame, grip_locs, t+1)
                         predic_mesh_and_plot(fig2,cfg,garnet_model,pred_local_frame,x,grip_locs,t+1).show()
