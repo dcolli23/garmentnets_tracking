@@ -47,7 +47,7 @@ The second field to be set is `checkpoint_path`. This should be set to the locat
 
 ## Running Evaluation Script
 
-We provide an evaluation script at `eval_garment_simple.py`. Different configurations of the filter can be chosen by altering variables at the start of the `main()` function. `DYNAMICS` indicates whether rigid transformations or learned transformations are used to predict future states, `MATCHING` controls whether or not observations are used to update predicted states, and `PLOT` controls whether or not plots are generated.
+We provide an evaluation script at `eval_garmentnet_dynamics.py`. Different configurations of the filter can be chosen by altering variables at the start of the `main()` function. `DYNAMICS` indicates whether rigid transformations or learned transformations are used to predict future states, `MATCHING` controls whether or not observations are used to update predicted states, and `PLOT` controls whether or not plots are generated.
 
 ## Simulation
 
@@ -112,9 +112,9 @@ The checkpoints for 2 stages x 6 categories (12 in total) are all included. For 
 
 ## Usage
 ### Installation
-A conda [garnments.yml](./garnments.yml) for `python=3.9, pytorch=1.9.0, cudatoolkit=11.1` is provided.
+A conda [environment.yml](./environment.yml) for `python=3.9, pytorch=1.9.0, cudatoolkit=11.1` is provided.
 ```
-conda env create --file garnments.yml
+conda env create --file environment.yml
 ```
 
 Alternatively, you can directly executive following commands:
@@ -152,8 +152,3 @@ To train stage 1 from scratch:
 ```
 (garmentnets)$ python train_pointnet2.py datamodule.zarr_path=<PROJECT_ROOT>/data/garmentnets_dataset.zarr
 ```
-### Training dynamics
-Given the action, training the dynamics for point clouds by chamfer loss.
-
-### Evaluation garmentnet dynamics
-Combined with learned dynamics and filtering matching, evaluate the predict garment mesh for each tracking steps.
