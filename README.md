@@ -112,9 +112,9 @@ The checkpoints for 2 stages x 6 categories (12 in total) are all included. For 
 
 ## Usage
 ### Installation
-A conda [environment.yml](./environment.yml) for `python=3.9, pytorch=1.9.0, cudatoolkit=11.1` is provided.
+A conda [garnments.yml](./garnments.yml) for `python=3.9, pytorch=1.9.0, cudatoolkit=11.1` is provided.
 ```
-conda env create --file environment.yml
+conda env create --file garnments.yml
 ```
 
 Alternatively, you can directly executive following commands:
