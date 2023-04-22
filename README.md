@@ -1,16 +1,15 @@
 # GarmentNets Tracking
 
-This is a fork of GarmentNets for the goal of extending GarmentNets' single prediction to tracking deformables. The code in this repository was written by Dylan Colli, Yating Lin, and Abhinav Kumar for the University of Michigan ROB 599, "DeepRob: Deep Learning for Robot Perception" course.
+This is a fork of GarmentNets for the goal of extending GarmentNets' single prediction to tracking deformables. The code in this repository was written by Dylan Colli, Yating Lin, Abhinav Kumar, and Cheng Chi (Original paper author) for the University of Michigan ROB 599, "DeepRob: Deep Learning for Robot Perception" course.
 
 Table of Contents
 - [GarmentNets Tracking](#garmentnets-tracking)
-  - [Extension Thoughts](#extension-thoughts)
-    - ["Simple" Post-GarmentNets Residual Prediction](#simple-post-garmentnets-residual-prediction)
-  - [Notes](#notes)
-    - [Installation](#installation)
-      - [Python Environment](#python-environment)
-      - [Data Downloads](#data-downloads)
-    - [Successful Run](#successful-run)
+  - [Setup](#setup)
+    - [Python Environment](#python-environment)
+    - [Data Download](#data-download)
+    - [Model Download](#model-download)
+    - [Configuring the Evaluation](#configuring-the-evaluation)
+  - [Running Evaluation Script](#running-evaluation-script)
   - [Simulation](#simulation)
 - [Original GarmentNets Documentation](#original-garmentnets-documentation)
   - [Cite this work](#cite-this-work)
@@ -22,107 +21,33 @@ Table of Contents
     - [Evaluation](#evaluation)
     - [Training](#training)
 
-## Extension Thoughts
+## Setup
 
-**Disclaimer:** I don't really know what I'm talking about here but Abhinav does so hopefully that's comforting to some extent.
+### Python Environment
 
-### "Simple" Post-GarmentNets Residual Prediction
-
-We're trying to extend GarmentNets to do tracking of the cloth **after** the cloth has initially been ran through the initial GarmentNets pipeline, i.e. the cloth has been picked up, the gripper rotated such that we received 4 views for the sensor to record point clouds, stitched those 4 point clouds together, and ran the pipeline.
-We then wish to perform tracking on the cloth now that we have a good idea of the initial pose.
-
-The task we're imagining to demonstrate this well is lowering the cloth onto a table (or floor, basically a flat surface).
-This will introduce deformation but likely not to cause extreme deformation such that it's an impossible task to track.
-
-Abhinav and I have talked fairly extensively on how to extend this to tracking.
-We've decided that the first thing that should be tried is to try and feed the original + new information into either an MLP or PointNet++.
-The information we'd feed to this portion of the model would be:
-- Original data (all concatenated point-wise).
-  - Point cloud points transformed to the table frame.
-    - We transform to the table frame so that the model is aware of the table and deformations that may cause.
-    - Note, this will cause some point `Z` values to be negative which I think is a good thing, essentially indicating that those points in the original cloud will NOT be there due to table-induced deformation.
-  - Label indicating that the cloud belongs to the original data.
-  - Warp field prediction (dx, dy, dz)
-  - **Tentative:** Corresponding predicted NOCS coordinates for each point.
-  - **Tentative:** NOCS prediction confidence.
-    - This could potentially be quite helpful. Would hopefully encode a point-wise importance for warpfield prediction.
-- New data (concatenated point-wise)
-  - Point cloud transformed to the table frame.
-  - Label indicating that the cloud belong to the new cloud.
-  - Zero-initialized warp field prediction
-  - **Tentative:** Zero-initialized Corresponding predicted NOCS coordinates for each point.
-  - **Tentative:** Zero-initialized NOCS prediction confidence.
-
-**Probable Problem:** I'm concerned about the presence of categorical labels here. I doubt that will play nicely. I wonder if we could use two PointNet++ encoders to encode both the original data and the new data, then use a PointNet++ decoder on the concatenation of those two encoded clouds to get a new warp field.
-- We might be able to avoid this problem by using a one hot encoding. So instead of original data indicated by a 1 and new data indicated by a 0, Original would be [1, 0] and New data would be indicated by [0, 1].
-
-For this residual prediction to work, the PointNet++ model will have to cover a decently large area of the input clouds so that the original non-table-deformed cloud areas will overlap with the new table-deformed areas.
-- **Potential Shortcut** - we could probably do a proof of concept for this and only lower the garment such that ~25% of the original grasped garment was deformed due to the table. Obviously, the most difficult situation would be when the garment is lowered such that all of it is resting on the table but I don't think we need to make something that is this robust.
-  - **Note on Implementation** - PointNet's grouping layer takes a distance as a parameter (usually Euclidean but can be non-Euclidean as well). That means that we can easily determine the number of layers needed for a point in the time t=t table-deformed cloud to overlap with the time t=0 original cloud. Much like a receptive field in CNNs.
-
-**Could potentially do this with 3D Convolution by binning the warp field.** Might be too high of resolution to bin, though.
-
-
-## Notes
-
-### Installation
-
-#### Python Environment
-
-I had a horrible time trying to get Anaconda to work (I already don't like it and this reaffirmed my opinion), so I decided to just use my existing Python environment. That's basically one step forward and two steps back, but I just needed to get this to work.
-
-I've added a pip requirements.txt named, "garmentnets_pip_requirements.txt" to help with package installs.
-This has lots of extraneous packages but should help with figuring out which package versions are necessary to get this running.
-You'll probably have to run GarmentNets multiple times to see which packages are required but not installed, then install them.
-
-#### Data Downloads
-
-I did the following to create the necessary directories for the datasets.
+We provide a conda environment configuration for installing necessary packages in `environment.yml`. This environment can be installed by executing the following:
 ```
-cd <garmentnets_tracking directory>
-mkdir data
+conda env create -n garmentnets --file environment.yml
+conda activate garmentnets
 ```
 
-I did the following to download the datasets:
+### Data Download
 
-1. `cd <garmentnets_tracking directory>/data`
-2. [GarmentNets Dataset Sample](https://garmentnets.cs.columbia.edu/dataset/garmentnets_dataset_sample.zarr.tar.gz)
-    ```
-    curl https://garmentnets.cs.columbia.edu/dataset/garmentnets_dataset_sample.zarr.tar.gz -o garmentnets_dataset_sample.zarr.tar.gz
-    tar -xf garmentnets_dataset_sample.zarr.tar.gz
-    ```
-3. [GarmentNets Pretrained Models](https://garmentnets.cs.columbia.edu/dataset/garmentnets_checkpoints.tar)
-    ```
-    curl https://garmentnets.cs.columbia.edu/dataset/garmentnets_checkpoints.tar
-    # Looks like Cheng zipped up a lot of unnecessary directories with this so we have to move the
-    # directory we need to this new data directory
-    tar -xf garmentnets_checkpoints.tar
-    mv local/crv/cchi/data/cloth_3d_workspace/garmentnets_checkpoints/ .
-    rmdir -r local
-    ```
+TBD Dylan
 
-### Successful Run
+### Model Download
 
-I was able to do a successful run by doing the following:
-1. Setup the run:
-    ```
-    cd <garmentnets_tracking directory>
-    GARMENTNETS_ROOT=$(pwd)
-    ```
-2. Do the prediction(s):
-    ```
-    python3 predict.py datamodule.zarr_path=$GARMENTNETS_ROOT/data/garmentnets_dataset_sample.zarr/Tshirt \
-        main.checkpoint_path=$GARMENTNETS_ROOT/data/garmentnets_checkpoints/pipeline_checkpoints/Tshirt_pipeline.ckpt
-    ```
-3. Find the output directory. Hydra creates an output directory based on the time that the run occurred so this will be different for each run.
-    ```
-    ls outputs  # Then just find the directory most recently created
-    ```
-4. Do the evaluation:
-    ```
-    # Substitute the directory with whatever directory that was created for you.
-    python3 eval.py main.prediction_output_dir=$GARMENTNETS_ROOT/outputs/2023-04-01/23-09-36
-    ```
+Please reference [Pretrained Models](#pretrained-models) to obtain pretrained models. 
+
+### Configuring the Evaluation
+
+We provide a hydra yaml file for running our evaluation script. This yml file can be found at `config/dynamics_test.yaml`. There are two fields that must be changed before the evaluation script can be run. The first is `zarr_path`. This should be set to the path of the downloaded evaluation data. Please remember to include `/TShirt` at the end of the path.
+
+The second field to be set is `checkpoint_path`. This should be set to the location of the `Tshirt_pipeline.ckpt file which can be downloaded with the other pretrained models associated with this project. Please refer to [Pretrained Models](#pretrained-models) to obtain pretrained models.
+
+## Running Evaluation Script
+
+We provide an evaluation script at `eval_garment_simple.py`. Different configurations of the filter can be chosen by altering variables at the start of the `main()` function. `DYNAMICS` indicates whether rigid transformations or learned transformations are used to predict future states, `MATCHING` controls whether or not observations are used to update predicted states, and `PLOT` controls whether or not plots are generated.
 
 ## Simulation
 
