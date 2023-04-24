@@ -53,9 +53,7 @@ We provide an evaluation script at `eval_garmentnet_dynamics.py`. Different conf
 
 ## Simulation
 
-For the original GarmentNets publication, Cheng did the simulation with Blender and has shared the repository with me. However, this code is several years old and relied on a Blender version that is significantly outdated. Due to this, I had to put in significant effort to revive the code. As such, I rewrote most of the code and only ported over the pertinent utility functions.
-
-The [simulation pipeline README](./simulation/README.md) *verbosely* details my thoughts as I worked through this process in addition to how to run the simulation pipeline.
+The [simulation pipeline README](./simulation/README.md) details how to run the simulation pipeline.
 
 # Original GarmentNets Documentation
 
